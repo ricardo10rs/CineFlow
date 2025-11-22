@@ -33,6 +33,7 @@ export interface User {
   phone?: string;
   jobTitle?: JobTitle;
   notificationPrefs?: NotificationPreferences;
+  hideWeeklySchedule?: boolean; // Nova propriedade para ocultar escala individualmente
 }
 
 export interface AIAnalysis {

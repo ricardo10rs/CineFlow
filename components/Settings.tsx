@@ -1,7 +1,7 @@
 
 import React, { useRef } from 'react';
 import { ThemeColor, User } from '../types';
-import { Check, Palette, Shield, CalendarOff, ToggleLeft, ToggleRight, Bell, Mail, MessageSquare, UserCircle, Camera } from 'lucide-react';
+import { Check, Palette, Shield, CalendarOff, ToggleLeft, ToggleRight, Bell, Mail, MessageSquare, UserCircle, Camera, Clock } from 'lucide-react';
 
 interface SettingsProps {
   user: User;
@@ -9,6 +9,8 @@ interface SettingsProps {
   onThemeChange: (color: ThemeColor) => void;
   isSundayOffEnabled?: boolean;
   onToggleSundayOff?: () => void;
+  isWeeklyScheduleEnabled?: boolean;
+  onToggleWeeklySchedule?: () => void;
   onUpdateAvatar?: (file: File) => void;
 }
 
@@ -18,6 +20,8 @@ export const Settings: React.FC<SettingsProps> = ({
   onThemeChange,
   isSundayOffEnabled = true,
   onToggleSundayOff,
+  isWeeklyScheduleEnabled = true,
+  onToggleWeeklySchedule,
   onUpdateAvatar
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -91,7 +95,7 @@ export const Settings: React.FC<SettingsProps> = ({
       )}
 
       {/* Admin Settings */}
-      {user.role === 'admin' && onToggleSundayOff && (
+      {user.role === 'admin' && (
         <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 max-w-2xl relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 opacity-5">
              <Shield size={100} className="text-slate-900" />
@@ -103,29 +107,56 @@ export const Settings: React.FC<SettingsProps> = ({
             <h3 className="text-lg font-bold text-slate-800">Administrativo</h3>
           </div>
 
-          <div className="space-y-6 relative z-10">
-             <div className="flex items-center justify-between bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <div className="flex items-center space-x-4">
-                   <div className="bg-white p-2 rounded-lg text-slate-400 shadow-sm border border-slate-100">
-                      <CalendarOff size={20} />
-                   </div>
-                   <div>
-                      <p className="text-sm font-bold text-slate-800">Solicitações de Folga (Domingo)</p>
-                      <p className="text-xs text-slate-500">Ao ativar, notificaremos toda a equipe por email/SMS.</p>
-                   </div>
+          <div className="space-y-4 relative z-10">
+             {onToggleSundayOff && (
+               <div className="flex items-center justify-between bg-slate-50 p-4 rounded-xl border border-slate-200">
+                  <div className="flex items-center space-x-4">
+                     <div className="bg-white p-2 rounded-lg text-slate-400 shadow-sm border border-slate-100">
+                        <CalendarOff size={20} />
+                     </div>
+                     <div>
+                        <p className="text-sm font-bold text-slate-800">Solicitações de Folga (Domingo)</p>
+                        <p className="text-xs text-slate-500">Habilitar/Desabilitar o envio de pedidos de folga.</p>
+                     </div>
+                  </div>
+                  
+                  <button 
+                    onClick={onToggleSundayOff}
+                    className={`transition-all duration-300 ${isSundayOffEnabled ? 'text-green-500' : 'text-slate-400'}`}
+                  >
+                    {isSundayOffEnabled ? (
+                      <ToggleRight size={40} fill="currentColor" className="opacity-100" />
+                    ) : (
+                      <ToggleLeft size={40} className="opacity-100" />
+                    )}
+                  </button>
+               </div>
+             )}
+
+             {onToggleWeeklySchedule && (
+                <div className="flex items-center justify-between bg-slate-50 p-4 rounded-xl border border-slate-200">
+                  <div className="flex items-center space-x-4">
+                      <div className="bg-white p-2 rounded-lg text-slate-400 shadow-sm border border-slate-100">
+                        <Clock size={20} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-800">Escala Semanal (Padrão)</p>
+                        <p className="text-xs text-slate-500">Exibir/Ocultar a grade de horários para funcionários.</p>
+                      </div>
+                  </div>
+                  
+                  <button 
+                    onClick={onToggleWeeklySchedule}
+                    className={`transition-all duration-300 ${isWeeklyScheduleEnabled ? 'text-green-500' : 'text-slate-400'}`}
+                  >
+                    {isWeeklyScheduleEnabled ? (
+                      <ToggleRight size={40} fill="currentColor" className="opacity-100" />
+                    ) : (
+                      <ToggleLeft size={40} className="opacity-100" />
+                    )}
+                  </button>
                 </div>
-                
-                <button 
-                  onClick={onToggleSundayOff}
-                  className={`transition-all duration-300 ${isSundayOffEnabled ? 'text-green-500' : 'text-slate-400'}`}
-                >
-                  {isSundayOffEnabled ? (
-                    <ToggleRight size={40} fill="currentColor" className="opacity-100" />
-                  ) : (
-                    <ToggleLeft size={40} className="opacity-100" />
-                  )}
-                </button>
-             </div>
+             )}
           </div>
         </div>
       )}

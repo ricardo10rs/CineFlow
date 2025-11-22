@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { WorkShift, ThemeColor, UserRole, OffRequest, User, DailySchedule } from '../types';
-import { Clock, Pencil, X, Save, CalendarPlus, CheckCircle, XCircle, CalendarDays, ChevronLeft, ChevronRight, User as UserIcon, Trash2, Check, Eye, EyeOff, Lock, Palmtree } from 'lucide-react';
+import { Clock, Pencil, X, Save, CalendarPlus, CheckCircle, XCircle, CalendarDays, ChevronLeft, ChevronRight, User as UserIcon, Trash2, Check, Eye, EyeOff, Lock, Palmtree, Clock as ClockOff } from 'lucide-react';
 
 interface ScheduleProps {
   shifts: WorkShift[];
@@ -19,7 +19,9 @@ interface ScheduleProps {
   onResolveRequest: (requestId: string, status: 'approved' | 'rejected') => void;
   onDeleteRequest: (requestId: string) => void;
   onTogglePublish: (monthKey: string) => void;
+  onToggleUserWeeklySchedule?: (userId: string) => void; // New prop
   isSundayOffEnabled: boolean;
+  isWeeklyScheduleEnabled?: boolean;
 }
 
 export const Schedule: React.FC<ScheduleProps> = ({ 
@@ -38,7 +40,9 @@ export const Schedule: React.FC<ScheduleProps> = ({
   onResolveRequest,
   onDeleteRequest,
   onTogglePublish,
-  isSundayOffEnabled
+  onToggleUserWeeklySchedule,
+  isSundayOffEnabled,
+  isWeeklyScheduleEnabled = true
 }) => {
   
   const [isEditing, setIsEditing] = useState(false);
@@ -326,6 +330,13 @@ export const Schedule: React.FC<ScheduleProps> = ({
   const todayStr = new Date().toISOString().split('T')[0];
   const todaySchedule = dailySchedules.find(s => s.userId === userId && s.date === todayStr);
   const isVacationToday = todaySchedule?.type === 'Vacation';
+  
+  // Weekly Schedule Visibility Logic
+  // Show if: User is Admin OR (Global Setting is Enabled AND User doesn't have individual hide flag)
+  const currentUserObj = users.find(u => u.id === userId);
+  const isHiddenForUser = currentUserObj?.hideWeeklySchedule || false;
+  
+  const showWeeklySchedule = userRole === 'admin' || (isWeeklyScheduleEnabled && !isHiddenForUser);
 
   return (
     <div className="space-y-8 animate-fade-in relative">
@@ -439,8 +450,21 @@ export const Schedule: React.FC<ScheduleProps> = ({
             )}
         </div>
 
-        {/* VACATION BLOCKING VIEW */}
-        {userRole !== 'admin' && isVacationToday ? (
+        {/* CONDITIONAL RENDERING: DISABLED / VACATION / SCHEDULE */}
+        {!showWeeklySchedule ? (
+            <div className="py-12 flex flex-col items-center justify-center bg-slate-50 rounded-xl border border-slate-200 text-center">
+                <div className="bg-white p-4 rounded-full shadow-sm mb-4">
+                    <ClockOff size={40} className="text-slate-400" />
+                </div>
+                <h3 className="text-xl font-bold text-slate-700">Visualização Indisponível</h3>
+                <p className="text-slate-500 text-sm mt-2 max-w-xs">
+                    {isHiddenForUser 
+                        ? "Sua escala semanal foi temporariamente ocultada (ex: Férias)."
+                        : "A escala semanal está temporariamente oculta pela administração."
+                    }
+                </p>
+            </div>
+        ) : userRole !== 'admin' && isVacationToday ? (
             <div className="py-12 flex flex-col items-center justify-center bg-orange-50 rounded-xl border border-orange-100 text-center">
                 <div className="bg-white p-4 rounded-full shadow-sm mb-4">
                     <Palmtree size={40} className="text-orange-500" />
@@ -499,17 +523,32 @@ export const Schedule: React.FC<ScheduleProps> = ({
                         Escala Mensal
                     </h2>
                     {userRole === 'admin' && (
-                        <div className="relative">
-                            <UserIcon size={14} className="absolute left-3 top-2.5 text-slate-500" />
-                            <select 
-                                value={selectedUserId}
-                                onChange={(e) => setSelectedUserId(e.target.value)}
-                                className="pl-9 pr-8 py-1.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none appearance-none"
-                            >
-                                {users.map(u => (
-                                    <option key={u.id} value={u.id}>{u.name} ({u.jobTitle || 'Func.'})</option>
-                                ))}
-                            </select>
+                        <div className="flex items-center gap-2">
+                            <div className="relative">
+                                <UserIcon size={14} className="absolute left-3 top-2.5 text-slate-500" />
+                                <select 
+                                    value={selectedUserId}
+                                    onChange={(e) => setSelectedUserId(e.target.value)}
+                                    className="pl-9 pr-8 py-1.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none appearance-none"
+                                >
+                                    {users.map(u => (
+                                        <option key={u.id} value={u.id}>{u.name} ({u.jobTitle || 'Func.'})</option>
+                                    ))}
+                                </select>
+                            </div>
+                            {selectedUser && onToggleUserWeeklySchedule && (
+                                <button 
+                                    onClick={() => onToggleUserWeeklySchedule(selectedUserId)}
+                                    className={`p-2 rounded-lg border transition-colors ${
+                                        selectedUser.hideWeeklySchedule 
+                                        ? 'bg-orange-50 border-orange-200 text-orange-600 hover:bg-orange-100' 
+                                        : 'bg-slate-50 border-slate-200 text-slate-400 hover:bg-slate-100 hover:text-slate-600'
+                                    }`}
+                                    title={selectedUser.hideWeeklySchedule ? "A Escala Semanal está OCULTA para este usuário" : "A Escala Semanal está VISÍVEL para este usuário"}
+                                >
+                                    {selectedUser.hideWeeklySchedule ? <EyeOff size={16} /> : <Eye size={16} />}
+                                </button>
+                            )}
                         </div>
                     )}
                     {userRole !== 'admin' && selectedUser && (

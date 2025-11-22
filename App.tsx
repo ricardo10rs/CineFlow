@@ -84,6 +84,7 @@ export default function App() {
   const [directMessages, setDirectMessages] = useState<DirectMessage[]>([]);
   const [publishedMonths, setPublishedMonths] = useState<string[]>([]); 
   const [isSundayOffEnabled, setIsSundayOffEnabled] = useState(true);
+  const [isWeeklyScheduleEnabled, setIsWeeklyScheduleEnabled] = useState(true); // NEW STATE
   const [availableJobTitles, setAvailableJobTitles] = useState<string[]>(['Recepcionista', 'Bilheteira', 'Atendente de Bombonière', 'Auxiliar de Limpeza', 'Gerente']);
 
   // --- NOTIFICATION CLEANUP LOGIC (1 HOUR) ---
@@ -499,6 +500,17 @@ export default function App() {
     });
   };
 
+  const handleToggleUserWeeklySchedule = (targetUserId: string) => {
+    setUsers(prev => prev.map(u => {
+        if (u.id === targetUserId) {
+            const newState = !u.hideWeeklySchedule;
+            triggerNotification(`Escala semanal ${newState ? 'OCULTA' : 'VISÍVEL'} para ${u.name}.`, 'sms');
+            return { ...u, hideWeeklySchedule: newState };
+        }
+        return u;
+    }));
+  };
+
   const handleRequestOff = (date: string) => {
     if (!user || !currentBranchId) return;
     const now = new Date();
@@ -565,6 +577,13 @@ export default function App() {
     } else {
       triggerNotification('A agenda para solicitação de folgas de Domingo foi FECHADA.', 'email');
     }
+  };
+
+  // NEW: Toggle Weekly Schedule
+  const handleToggleWeeklySchedule = () => {
+      const newState = !isWeeklyScheduleEnabled;
+      setIsWeeklyScheduleEnabled(newState);
+      triggerNotification(`A escala semanal foi ${newState ? 'HABILITADA' : 'DESABILITADA'} para os funcionários.`, 'sms');
   };
 
   const handleUpload = async (title: string, description: string, type: ContentType, file?: File, durationDays?: number | null) => {
@@ -860,7 +879,9 @@ export default function App() {
               onResolveRequest={handleResolveRequest}
               onDeleteRequest={handleDeleteRequest}
               onTogglePublish={handleTogglePublishMonth}
+              onToggleUserWeeklySchedule={handleToggleUserWeeklySchedule} // NEW PROP
               isSundayOffEnabled={isSundayOffEnabled}
+              isWeeklyScheduleEnabled={isWeeklyScheduleEnabled}
             />
           )}
 
@@ -896,6 +917,8 @@ export default function App() {
               onThemeChange={handleThemeChange} 
               isSundayOffEnabled={isSundayOffEnabled}
               onToggleSundayOff={handleToggleSundayOff}
+              isWeeklyScheduleEnabled={isWeeklyScheduleEnabled}
+              onToggleWeeklySchedule={handleToggleWeeklySchedule}
               onUpdateAvatar={handleUpdateAvatar}
             />
           )}

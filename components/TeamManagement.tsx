@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { User, UserRole, JobTitle, Branch } from '../types';
-import { UserPlus, Trash2, User as UserIcon, Lock, Mail, Phone, Briefcase, Filter, ArrowUpDown, MessageSquare, X, Send, Plus, Pencil, Building, Paperclip, FileText, Image as ImageIcon, Settings, Check, Save } from 'lucide-react';
+import { UserPlus, Trash2, User as UserIcon, Lock, Mail, Phone, Briefcase, Filter, ArrowUpDown, MessageSquare, X, Send, Plus, Pencil, Building, Paperclip, FileText, Image as ImageIcon, Settings, Check, Save, EyeOff } from 'lucide-react';
 
 interface TeamManagementProps {
   users: User[];
@@ -38,6 +38,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
   const [jobTitle, setJobTitle] = useState<string>('Recepcionista');
   const [role, setRole] = useState<UserRole>('employee');
   const [branchId, setBranchId] = useState<string>(branches[0]?.id || '');
+  const [hideWeeklySchedule, setHideWeeklySchedule] = useState(false); // New state
 
   // Dynamic Job Title Logic
   const [isAddingJob, setIsAddingJob] = useState(false);
@@ -93,7 +94,13 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
     
     if (editingUser) {
         onUpdateUser(editingUser.id, {
-            name, email, phone, jobTitle, role, branchId: currentUserRole === 'super_admin' ? branchId : undefined
+            name, 
+            email, 
+            phone, 
+            jobTitle, 
+            role, 
+            branchId: currentUserRole === 'super_admin' ? branchId : undefined,
+            hideWeeklySchedule // Update hidden status
         });
         setEditingUser(null);
     } else {
@@ -105,7 +112,8 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
             phone,
             jobTitle,
             branchId: currentUserRole === 'super_admin' ? branchId : undefined, // Admin uses their own branch automatically in App.tsx
-            notificationPrefs: { email: true, sms: true }
+            notificationPrefs: { email: true, sms: true },
+            hideWeeklySchedule // Set initial hidden status
         });
     }
     
@@ -120,6 +128,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
     setPhone('');
     setJobTitle('Recepcionista');
     setRole('employee');
+    setHideWeeklySchedule(false);
     setEditingUser(null);
   };
 
@@ -130,6 +139,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
       setPhone(user.phone || '');
       setJobTitle(user.jobTitle || 'Recepcionista');
       setRole(user.role);
+      setHideWeeklySchedule(user.hideWeeklySchedule || false);
       if (user.branchId) setBranchId(user.branchId);
       setPassword(''); // Don't show password, only set if changing
   };
@@ -496,6 +506,20 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
                 </div>
               </div>
 
+              <div className="flex items-center space-x-2 pt-2">
+                    <input
+                        type="checkbox"
+                        id="hideSchedule"
+                        checked={hideWeeklySchedule}
+                        onChange={(e) => setHideWeeklySchedule(e.target.checked)}
+                        className="h-4 w-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
+                    />
+                    <label htmlFor="hideSchedule" className="text-xs text-slate-600 cursor-pointer select-none flex items-center">
+                         <EyeOff size={14} className="mr-1.5 text-slate-400" />
+                         Ocultar Escala Semanal (Ex: Férias)
+                    </label>
+              </div>
+
               <button
                 type="submit"
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-500/30 transition-all active:scale-95"
@@ -568,6 +592,9 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
                                 <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 rounded border border-slate-200">
                                     {branches.find(b => b.id === u.branchId)?.name || 'Unidade Desconhecida'}
                                 </span>
+                            )}
+                             {u.hideWeeklySchedule && (
+                                <EyeOff size={14} className="text-orange-400" title="Escala Oculta" />
                             )}
                         </div>
                         <div className="flex items-center space-x-2 flex-wrap">
