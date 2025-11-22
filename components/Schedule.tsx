@@ -78,7 +78,7 @@ export const Schedule: React.FC<ScheduleProps> = ({
       // Se estivermos editando a DATA do PRIMEIRO item da lista (index 0)
       // Aceita formatos variados: "1/1", "01/01", "1/10", "10/10", "26/10"
       if (index === 0 && field === 'date' && typeof value === 'string') {
-          // Regex mais flexível para capturar dia e mês
+          // Regex mais flexível para capturar dia e mês (D/M ou DD/MM)
           const match = value.match(/^(\d{1,2})[\/-](\d{1,2})$/);
           
           if (match) {
@@ -198,13 +198,11 @@ export const Schedule: React.FC<ScheduleProps> = ({
       const bulkUpdates: DailySchedule[] = [];
 
       for (let d = 1; d <= totalDays; d++) {
-          // Skip Sundays from auto-fill to keep them manual/separate if desired? 
-          // Request said "ao clicar no primeiro domingo do mês muda todos os outros domingos" was bad.
-          // But bulk fill usually implies EVERYTHING. 
-          // However, usually Sunday logic is separate. Let's keep bulk fill as EVERYTHING for now as requested previously,
-          // but if the user specifically requested "SundayOff" logic restriction, we should respect the type passed.
-          // If they select 'Off', it applies 'Off' to Sundays too. Admin can correct later.
+          const dateToCheck = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), d);
           
+          // Skip Sundays from auto-fill to allow manual config
+          if (dateToCheck.getDay() === 0) continue;
+
           const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
           const uniqueId = `${Date.now()}-${d}-${Math.random().toString(36).substr(2, 5)}`;
           
@@ -255,16 +253,24 @@ export const Schedule: React.FC<ScheduleProps> = ({
     e.preventDefault();
     if (!selectedSunday) return;
 
-    // Validação: Apenas 1 solicitação por mês
     const [reqDay, reqMonth] = selectedSunday.split('/');
-    const existingRequestInMonth = requests.find(req => {
-      if (req.userId !== userId) return false;
-      const [rDay, rMonth] = req.date.split('/');
-      return rMonth === reqMonth; // Verifica se o mês é o mesmo
+
+    // VALIDAÇÃO 1: Apenas 1 solicitação PENDENTE por vez
+    const hasPendingRequest = requests.find(req => req.userId === userId && req.status === 'pending');
+    if (hasPendingRequest) {
+      alert(`⚠️ Você já possui uma solicitação pendente (${hasPendingRequest.date}). Aguarde a análise ou exclua a anterior para enviar uma nova.`);
+      return;
+    }
+
+    // VALIDAÇÃO 2: Apenas 1 folga APROVADA por mês
+    const hasApprovedInMonth = requests.find(req => {
+      if (req.userId !== userId || req.status !== 'approved') return false;
+      const [, rMonth] = req.date.split('/');
+      return rMonth === reqMonth;
     });
 
-    if (existingRequestInMonth) {
-      alert(`⚠️ Você já possui uma solicitação para o mês ${reqMonth}. Exclua a anterior se desejar trocar.`);
+    if (hasApprovedInMonth) {
+      alert(`⚠️ Você já possui uma folga aprovada para o mês ${reqMonth}.`);
       return;
     }
 
