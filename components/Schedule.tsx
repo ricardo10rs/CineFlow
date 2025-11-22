@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { WorkShift, ThemeColor, UserRole, OffRequest, User, DailySchedule } from '../types';
-import { Clock, Pencil, X, Save, CalendarPlus, CheckCircle, XCircle, CalendarDays, ChevronLeft, ChevronRight, User as UserIcon, Trash2, Check, Eye, EyeOff, Lock, Palmtree, Clock as ClockOff } from 'lucide-react';
+import { Clock, Pencil, X, Save, CalendarPlus, CheckCircle, XCircle, CalendarDays, ChevronLeft, ChevronRight, User as UserIcon, Trash2, Check, Eye, EyeOff, Lock, Palmtree, Clock as ClockOff, Sun, MousePointerClick } from 'lucide-react';
 
 interface ScheduleProps {
   shifts: WorkShift[];
@@ -19,7 +19,8 @@ interface ScheduleProps {
   onResolveRequest: (requestId: string, status: 'approved' | 'rejected') => void;
   onDeleteRequest: (requestId: string) => void;
   onTogglePublish: (monthKey: string) => void;
-  onToggleUserWeeklySchedule?: (userId: string) => void; // New prop
+  onToggleUserWeeklySchedule?: (userId: string) => void;
+  onAssignVacation?: (userId: string, startDay: number, currentMonth: Date) => void; // New Prop
   isSundayOffEnabled: boolean;
   isWeeklyScheduleEnabled?: boolean;
 }
@@ -41,6 +42,7 @@ export const Schedule: React.FC<ScheduleProps> = ({
   onDeleteRequest,
   onTogglePublish,
   onToggleUserWeeklySchedule,
+  onAssignVacation,
   isSundayOffEnabled,
   isWeeklyScheduleEnabled = true
 }) => {
@@ -52,16 +54,16 @@ export const Schedule: React.FC<ScheduleProps> = ({
   // Monthly View States
   const [selectedUserId, setSelectedUserId] = useState<string>(userId);
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [isVacationMode, setIsVacationMode] = useState(false); // New State for interactive selection
 
   useEffect(() => {
-    // Ensure employee can only see their own schedule
     if (userRole !== 'admin') {
         setSelectedUserId(userId);
     }
   }, [userRole, userId]);
 
   const handleEditClick = () => {
-    setTempShifts(JSON.parse(JSON.stringify(shifts))); // Deep copy
+    setTempShifts(JSON.parse(JSON.stringify(shifts)));
     setIsEditing(true);
   };
 
@@ -78,23 +80,17 @@ export const Schedule: React.FC<ScheduleProps> = ({
       const newShifts = [...prev];
       newShifts[index] = { ...newShifts[index], [field]: value };
 
-      // --- AUTO-FILL DATES LOGIC ---
-      // Se estivermos editando a DATA do PRIMEIRO item da lista (index 0)
-      // Aceita formatos variados: "1/1", "01/01", "1/10", "10/10", "26/10"
       if (index === 0 && field === 'date' && typeof value === 'string') {
-          // Regex mais flexível para capturar dia e mês (D/M ou DD/MM)
-          const match = value.match(/^(\d{1,2})[\/-](\d{1,2})$/);
+          const match = value.match(/^(\d{1,2})[\/-]?(\d{1,2})?$/);
           
           if (match) {
               const day = parseInt(match[1], 10);
-              const month = parseInt(match[2], 10);
+              let month = match[2] ? parseInt(match[2], 10) : (new Date().getMonth() + 1);
 
-              if (!isNaN(day) && !isNaN(month) && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+              if (!isNaN(day) && day >= 1 && day <= 31) {
                   const currentYear = new Date().getFullYear();
-                  // Meses no JS começam em 0, então subtraímos 1
                   const baseDate = new Date(currentYear, month - 1, day);
 
-                  // Loop para atualizar os dias seguintes (do index 1 em diante)
                   for (let i = 1; i < newShifts.length; i++) {
                       const nextDate = new Date(baseDate);
                       nextDate.setDate(baseDate.getDate() + i);
@@ -110,7 +106,6 @@ export const Schedule: React.FC<ScheduleProps> = ({
               }
           }
       }
-      // -----------------------------
 
       if (field === 'type' && value === 'Off') {
           newShifts[index].startTime = '-';
@@ -118,7 +113,7 @@ export const Schedule: React.FC<ScheduleProps> = ({
           newShifts[index].location = '';
       } else if (field === 'type' && (value === 'Work' || value === 'Remote') && newShifts[index].type === 'Off') {
           newShifts[index].startTime = '09:00';
-          newShifts[index].endTime = '-'; // Ignora horário de fim
+          newShifts[index].endTime = '-';
           newShifts[index].location = value === 'Remote' ? 'Home Office' : 'Escritório Central';
       }
       
@@ -126,13 +121,11 @@ export const Schedule: React.FC<ScheduleProps> = ({
     });
   };
 
-  // --- MONTHLY LOGIC ---
-
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
     const month = date.getMonth();
     const days = new Date(year, month + 1, 0).getDate();
-    const firstDay = new Date(year, month, 1).getDay(); // 0 = Sunday
+    const firstDay = new Date(year, month, 1).getDay();
     return { days, firstDay };
   };
 
@@ -141,50 +134,52 @@ export const Schedule: React.FC<ScheduleProps> = ({
   const getDailyStatus = (day: number) => {
     const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     
-    // 1. Check for explicit override (Individual Schedule)
     const explicitSchedule = dailySchedules.find(s => s.userId === selectedUserId && s.date === dateStr);
     if (explicitSchedule) return explicitSchedule;
 
-    // 2. If no override, ALWAYS DEFAULT TO WORK
     return {
         id: `virtual-${dateStr}`,
         userId: selectedUserId,
         date: dateStr,
         type: 'Work',
-        isDefault: true // Flag to know it's not saved in DB yet
+        isDefault: true 
     } as DailySchedule & { isDefault?: boolean };
   };
 
   const handleDayClick = (day: number) => {
     if (userRole !== 'admin') return;
 
+    // --- VACATION MODE LOGIC ---
+    if (isVacationMode && onAssignVacation) {
+        if (window.confirm(`Confirmar férias de 30 dias a partir do dia ${day}? Isso irá sobrescrever a escala e gerar o aviso de retorno.`)) {
+            onAssignVacation(selectedUserId, day, currentMonth);
+            setIsVacationMode(false); // Turn off mode after selection
+        }
+        return;
+    }
+
     const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const currentStatus = getDailyStatus(day);
     
-    // Determine logic based on day of week
     const clickedDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
     const isSunday = clickedDate.getDay() === 0;
 
-    // Cycle logic
     let newType: 'Work' | 'Off' | 'SundayOff' | 'Vacation' = 'Work';
     
     if (currentStatus) {
         if (isSunday) {
-            // Cycle for Sunday: Work -> SundayOff -> Vacation -> Work
             if (currentStatus.type === 'Work') newType = 'SundayOff';
             else if (currentStatus.type === 'SundayOff') newType = 'Vacation';
             else if (currentStatus.type === 'Vacation') newType = 'Work';
-            else newType = 'SundayOff'; // Fallback if currently 'Off'
+            else newType = 'SundayOff'; 
         } else {
-            // Cycle for Weekdays: Work -> Off -> Vacation -> Work
             if (currentStatus.type === 'Work') newType = 'Off';
             else if (currentStatus.type === 'Off') newType = 'Vacation';
             else if (currentStatus.type === 'Vacation') newType = 'Work';
-            else newType = 'Work'; // Fallback if currently 'SundayOff'
+            else newType = 'Work';
         }
     }
 
-    // 1. Update the clicked day (Standard single day update)
     onUpdateDailySchedule({
         id: currentStatus && !('isDefault' in currentStatus) ? currentStatus.id : Date.now().toString(),
         userId: selectedUserId,
@@ -204,7 +199,7 @@ export const Schedule: React.FC<ScheduleProps> = ({
       for (let d = 1; d <= totalDays; d++) {
           const dateToCheck = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), d);
           
-          // Skip Sundays from auto-fill to allow manual config
+          // Skip Sundays for bulk fill
           if (dateToCheck.getDay() === 0) continue;
 
           const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
@@ -221,25 +216,18 @@ export const Schedule: React.FC<ScheduleProps> = ({
       onBulkUpdateDailySchedule(bulkUpdates);
   };
 
-  // --- OFF REQUEST LOGIC ---
-
-  // Modificado para pegar todos os domingos do PRÓXIMO MÊS
   const getNextMonthSundays = () => {
     const dates = [];
     const today = new Date();
-    
-    // Set date to 1st day of next month
     const date = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-    const targetMonth = date.getMonth(); // Indice do próximo mês
+    const targetMonth = date.getMonth(); 
 
-    // Loop while still in the target month
     while (date.getMonth() === targetMonth) {
-      if (date.getDay() === 0) { // 0 is Sunday
+      if (date.getDay() === 0) { 
         const d = String(date.getDate()).padStart(2, '0');
         const m = String(date.getMonth() + 1).padStart(2, '0');
         dates.push(`${d}/${m}`);
       }
-      // Next day
       date.setDate(date.getDate() + 1);
     }
     return dates;
@@ -248,7 +236,6 @@ export const Schedule: React.FC<ScheduleProps> = ({
   const getNextMonthName = () => {
       const today = new Date();
       const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-      // Capitalize first letter
       const monthName = nextMonth.toLocaleDateString('pt-BR', { month: 'long' });
       return monthName.charAt(0).toUpperCase() + monthName.slice(1);
   };
@@ -259,14 +246,12 @@ export const Schedule: React.FC<ScheduleProps> = ({
 
     const [reqDay, reqMonth] = selectedSunday.split('/');
 
-    // VALIDAÇÃO 1: Apenas 1 solicitação PENDENTE por vez
     const hasPendingRequest = requests.find(req => req.userId === userId && req.status === 'pending');
     if (hasPendingRequest) {
       alert(`⚠️ Você já possui uma solicitação pendente (${hasPendingRequest.date}). Aguarde a análise ou exclua a anterior para enviar uma nova.`);
       return;
     }
 
-    // VALIDAÇÃO 2: Apenas 1 folga APROVADA por mês
     const hasApprovedInMonth = requests.find(req => {
       if (req.userId !== userId || req.status !== 'approved') return false;
       const [, rMonth] = req.date.split('/');
@@ -278,7 +263,6 @@ export const Schedule: React.FC<ScheduleProps> = ({
       return;
     }
 
-    // VALIDAÇÃO DE CONFLITO DE CARGO
     const currentUser = users.find(u => u.id === userId);
     if (currentUser && currentUser.jobTitle) {
       const restrictedRoles = ['Bilheteira', 'Atendente de Bombonière', 'Auxiliar de Limpeza'];
@@ -302,40 +286,46 @@ export const Schedule: React.FC<ScheduleProps> = ({
 
   const pendingRequests = requests.filter(r => r.status === 'pending').sort((a, b) => Number(a.id) - Number(b.id));
   
-  // Filter Logic for Employee View
   const userRequests = requests.filter(r => {
       if (r.userId !== userId) return false;
-
-      if (r.status === 'approved') return false; // Hide approved
-
+      if (r.status === 'approved') return false; 
       if (r.status === 'rejected' && r.resolutionDate) {
           const resolveDate = new Date(r.resolutionDate);
           const today = new Date();
           const diffTime = Math.abs(today.getTime() - resolveDate.getTime());
           const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-          if (diffDays > 5) return false; // Hide if resolved more than 5 days ago
+          if (diffDays > 5) return false; 
       }
-      
       return true;
-  }).sort((a, b) => Number(b.id) - Number(a.id)); // My requests desc
+  }).sort((a, b) => Number(b.id) - Number(a.id)); 
   
   const selectedUser = users.find(u => u.id === selectedUserId);
 
-  // Publication Logic
   const currentMonthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
   const isMonthPublished = publishedMonths.includes(`${selectedUserId}:${currentMonthKey}`);
   const canViewCalendar = userRole === 'admin' || isMonthPublished;
 
-  // Check if selected user is on vacation TODAY
   const todayStr = new Date().toISOString().split('T')[0];
   const todaySchedule = dailySchedules.find(s => s.userId === userId && s.date === todayStr);
   const isVacationToday = todaySchedule?.type === 'Vacation';
   
-  // Weekly Schedule Visibility Logic
-  // Show if: User is Admin OR (Global Setting is Enabled AND User doesn't have individual hide flag)
+  let returnDateDisplay = '';
+  if (isVacationToday) {
+      let checkDate = new Date();
+      for(let i = 1; i <= 60; i++) {
+          checkDate.setDate(checkDate.getDate() + 1);
+          const dStr = checkDate.toISOString().split('T')[0];
+          const s = dailySchedules.find(item => item.userId === userId && item.date === dStr);
+          
+          if (!s || s.type !== 'Vacation') {
+             returnDateDisplay = checkDate.toLocaleDateString('pt-BR');
+             break;
+          }
+      }
+  }
+
   const currentUserObj = users.find(u => u.id === userId);
   const isHiddenForUser = currentUserObj?.hideWeeklySchedule || false;
-  
   const showWeeklySchedule = userRole === 'admin' || (isWeeklyScheduleEnabled && !isHiddenForUser);
 
   return (
@@ -343,7 +333,7 @@ export const Schedule: React.FC<ScheduleProps> = ({
 
       {/* --- WEEKLY VIEW --- */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-        {/* Edit Modal (Only for Admin editing Weekly Template) */}
+        {/* Edit Modal */}
         {isEditing && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
                 <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-fade-in-up max-h-[90vh] flex flex-col">
@@ -364,7 +354,6 @@ export const Schedule: React.FC<ScheduleProps> = ({
                         {tempShifts.map((shift) => (
                             <div key={shift.id} className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
                                 <div className="sm:col-span-3">
-                                    {/* INPUT DO NOME DO DIA (EDITÁVEL) */}
                                     <input 
                                         type="text" 
                                         value={shift.dayOfWeek}
@@ -450,17 +439,16 @@ export const Schedule: React.FC<ScheduleProps> = ({
             )}
         </div>
 
-        {/* CONDITIONAL RENDERING: DISABLED / VACATION / SCHEDULE */}
         {!showWeeklySchedule ? (
             <div className="py-12 flex flex-col items-center justify-center bg-slate-50 rounded-xl border border-slate-200 text-center">
                 <div className="bg-white p-4 rounded-full shadow-sm mb-4">
                     <ClockOff size={40} className="text-slate-400" />
                 </div>
-                <h3 className="text-xl font-bold text-slate-700">Visualização Indisponível</h3>
+                <h3 className="text-xl font-bold text-slate-700">Aproveite seu descanso!</h3>
                 <p className="text-slate-500 text-sm mt-2 max-w-xs">
                     {isHiddenForUser 
-                        ? "Sua escala semanal foi temporariamente ocultada (ex: Férias)."
-                        : "A escala semanal está temporariamente oculta pela administração."
+                        ? "Sua escala semanal está pausada durante sua ausência."
+                        : "A visualização da escala semanal está temporariamente desabilitada."
                     }
                 </p>
             </div>
@@ -471,20 +459,21 @@ export const Schedule: React.FC<ScheduleProps> = ({
                 </div>
                 <h3 className="text-xl font-bold text-orange-700">Boas Férias!</h3>
                 <p className="text-orange-600 text-sm mt-2 max-w-xs">
-                    Aproveite seu descanso. Sua escala semanal estará disponível novamente quando você retornar.
+                    Aproveite seu descanso.
                 </p>
+                {returnDateDisplay && (
+                    <div className="mt-4 bg-white/80 px-4 py-2 rounded-lg border border-orange-200">
+                        <p className="text-xs font-bold text-orange-800 uppercase">Retorno previsto</p>
+                        <p className="text-lg font-bold text-orange-600">{returnDateDisplay}</p>
+                    </div>
+                )}
             </div>
         ) : (
             <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
                 {shifts.map((shift) => {
                     const isOff = shift.type === 'Off';
-                    
-                    // Calculate date for current week based on today
-                    // Assumption: The shift.dayIndex is correct (0=Sun, 1=Mon, etc.)
-                    // We want to show the date for the current week
                     const today = new Date();
                     const currentDayIdx = today.getDay();
-                    // Calculate difference to get to the target day index
                     const diff = shift.dayIndex! - currentDayIdx; 
                     const shiftDate = new Date();
                     shiftDate.setDate(today.getDate() + diff);
@@ -494,7 +483,6 @@ export const Schedule: React.FC<ScheduleProps> = ({
                     return (
                         <div key={shift.id} className={`p-4 rounded-xl border flex flex-col items-center justify-center text-center ${isOff ? 'bg-slate-50 border-slate-200/60' : 'bg-white border-slate-200 shadow-sm'}`}>
                             <span className="text-xs font-bold uppercase text-slate-400 mb-0.5">{shift.dayOfWeek.substring(0,3)}</span>
-                            {/* Displays manually entered date or calculated date */}
                             <span className="text-xs font-medium text-slate-500 mb-1">{dateString}</span>
                             <span className="text-sm font-bold text-slate-700 mb-2">{shift.dayOfWeek.split('-')[0]}</span>
                             {isOff ? (
@@ -561,10 +549,18 @@ export const Schedule: React.FC<ScheduleProps> = ({
                 <div className="flex flex-col items-end gap-2">
                     {userRole === 'admin' && (
                         <div className="flex items-center gap-2 mb-1">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase">Preencher Mês:</span>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase">Preencher:</span>
                             <button onClick={() => handleBulkFill('Work')} className="text-[10px] bg-blue-50 text-blue-600 px-2 py-1 rounded border border-blue-100 font-bold hover:bg-blue-100">Trabalho</button>
                             <button onClick={() => handleBulkFill('Off')} className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-1 rounded border border-emerald-100 font-bold hover:bg-emerald-100">Folga</button>
-                            <button onClick={() => handleBulkFill('Vacation')} className="text-[10px] bg-orange-50 text-orange-600 px-2 py-1 rounded border border-orange-100 font-bold hover:bg-orange-100">Férias</button>
+                            
+                            <button 
+                                disabled
+                                className="text-[10px] px-2 py-1 rounded border font-bold flex items-center transition-all bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60"
+                                title="Funcionalidade desabilitada"
+                            >
+                                <Sun size={10} className="mr-1" />
+                                Férias (30 Dias)
+                            </button>
                         </div>
                     )}
                     <div className="flex items-center gap-3">
@@ -603,7 +599,6 @@ export const Schedule: React.FC<ScheduleProps> = ({
                 </div>
              </div>
 
-             {/* Calendar Grid / Placeholder */}
              {!canViewCalendar ? (
                  <div className="flex flex-col items-center justify-center py-16 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
                      <div className="bg-slate-100 p-4 rounded-full mb-4">
@@ -616,44 +611,37 @@ export const Schedule: React.FC<ScheduleProps> = ({
                  </div>
              ) : (
                  <>
-                    {/* MOBILE OPTIMIZATION: Wrapper for horizontal scroll with MIN-WIDTH */}
                     <div className="overflow-x-auto pb-4">
                         <div className="grid grid-cols-7 gap-2 min-w-[1000px]">
-                            {/* Headers */}
                             {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day => (
                                 <div key={day} className="text-center text-[10px] font-bold text-slate-400 uppercase py-2">
                                     {day}
                                 </div>
                             ))}
 
-                            {/* Empty Days */}
                             {Array.from({ length: firstDay }).map((_, i) => (
                                 <div key={`empty-${i}`} className="h-28 rounded-2xl bg-slate-50/50" />
                             ))}
 
-                            {/* Days */}
                             {Array.from({ length: days }).map((_, i) => {
                                 const day = i + 1;
                                 const currentDayDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
                                 const isToday = new Date().toDateString() === currentDayDate.toDateString();
                                 const weekDayName = currentDayDate.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
                                 
-                                // Format dates for comparison
                                 const dayFormatted = String(day).padStart(2, '0');
                                 const monthFormatted = String(currentMonth.getMonth() + 1).padStart(2, '0');
                                 const requestDateStr = `${dayFormatted}/${monthFormatted}`;
 
                                 const status = getDailyStatus(day);
 
-                                // Check for Pending Requests (Only showing for the selected user)
                                 const pendingRequest = requests.find(r => 
                                     r.userId === selectedUserId && 
                                     r.date === requestDateStr && 
                                     r.status === 'pending'
                                 );
                                 
-                                // VIBRANT COLORS LOGIC
-                                let bgClass = 'bg-slate-50 border-slate-100'; // Default empty
+                                let bgClass = 'bg-slate-50 border-slate-100'; 
                                 let textClass = 'text-slate-400';
                                 let statusLabel = '';
                                 let isPending = false;
@@ -678,7 +666,6 @@ export const Schedule: React.FC<ScheduleProps> = ({
                                     }
                                 }
 
-                                // If there is a pending request and NOT an explicit override
                                 if (userRole === 'admin' && pendingRequest && (!status || ('isDefault' in status))) {
                                     bgClass = 'bg-amber-400 shadow-md shadow-amber-200 border-amber-400';
                                     textClass = 'text-white';
@@ -693,7 +680,7 @@ export const Schedule: React.FC<ScheduleProps> = ({
                                         className={`
                                             h-28 p-2 flex flex-col justify-between transition-all relative rounded-2xl border cursor-default select-none
                                             ${bgClass}
-                                            ${(userRole === 'admin' && !isPending) ? 'cursor-pointer active:scale-95 hover:opacity-90' : ''}
+                                            ${(userRole === 'admin' && !isPending) ? (isVacationMode ? 'cursor-pointer ring-2 ring-orange-400 scale-95 opacity-90' : 'cursor-pointer active:scale-95 hover:opacity-90') : ''}
                                             ${isToday ? `ring-2 ring-offset-2 ring-offset-white ring-yellow-500 z-10` : ''}
                                         `}
                                     >
@@ -704,7 +691,6 @@ export const Schedule: React.FC<ScheduleProps> = ({
                                         
                                         <div className="mt-1 text-right flex justify-end items-end h-full overflow-hidden">
                                             {isPending ? (
-                                                // Only Admin sees this block because isPending is false for employees
                                                 <div className="flex gap-1 bg-white/20 p-1 rounded-lg backdrop-blur-sm">
                                                     <button 
                                                         onClick={(e) => { e.stopPropagation(); onResolveRequest(pendingRequest!.id, 'approved'); }}
@@ -745,7 +731,6 @@ export const Schedule: React.FC<ScheduleProps> = ({
              )}
       </div>
 
-      {/* Requests Section */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
          <div className="flex items-center space-x-2 mb-6">
             <div className={`p-2 rounded-lg bg-${themeColor}-50 text-${themeColor}-600`}>
@@ -755,7 +740,6 @@ export const Schedule: React.FC<ScheduleProps> = ({
          </div>
 
          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Request Form */}
             <div className="space-y-4">
                 <p className="text-sm text-slate-500 font-medium">Solicite um domingo específico para o mês de <span className="text-slate-800 font-bold">{getNextMonthName()}</span>.</p>
                 
@@ -793,7 +777,6 @@ export const Schedule: React.FC<ScheduleProps> = ({
                   </div>
                 )}
 
-                {/* EMPLOYEE'S REQUESTS LIST */}
                 {userRole !== 'admin' && userRequests.length > 0 && (
                     <div className="mt-6 pt-6 border-t border-slate-100">
                         <h4 className="text-xs font-bold text-slate-500 uppercase mb-3">Suas Solicitações Recentes</h4>
@@ -813,7 +796,6 @@ export const Schedule: React.FC<ScheduleProps> = ({
                                             {req.status === 'approved' ? 'Aprovada' : req.status === 'rejected' ? 'Negada' : 'Pendente'}
                                         </span>
                                         
-                                        {/* Allow delete only if pending or rejected (visible ones) */}
                                         <button 
                                             onClick={() => onDeleteRequest(req.id)}
                                             className="text-slate-400 hover:text-red-500 transition-colors"
@@ -829,7 +811,6 @@ export const Schedule: React.FC<ScheduleProps> = ({
                 )}
             </div>
 
-            {/* Admin Requests List */}
             {userRole === 'admin' && (
                 <div className="border-t md:border-t-0 md:border-l border-slate-100 md:pl-8 pt-6 md:pt-0">
                     <h4 className="text-sm font-bold text-slate-700 mb-4 flex items-center justify-between">

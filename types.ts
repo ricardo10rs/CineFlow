@@ -49,6 +49,7 @@ export interface BaseItem {
   date: string;
   author: string;
   analysis?: AIAnalysis;
+  targetUserId?: string; // NEW: Optional field to target a specific user (Private Announcement)
 }
 
 export interface AnnouncementItem extends BaseItem {

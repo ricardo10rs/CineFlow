@@ -9,7 +9,7 @@ import { TeamManagement } from './components/TeamManagement';
 import { Settings } from './components/Settings';
 import { BranchManagement } from './components/BranchManagement';
 import { AppItem, AnnouncementItem, ContentType, WorkShift, User, ThemeColor, OffRequest, Notification, DailySchedule, DirectMessage, Branch } from './types';
-import { Plus, Bell, Menu, MessageSquare, Mail, Smartphone, Paperclip, Download } from 'lucide-react';
+import { Plus, Bell, Menu, Mail, Smartphone } from 'lucide-react';
 
 // Initial Data with Branch IDs (assuming '1' is the main default branch)
 const INITIAL_BRANCHES: Branch[] = [
@@ -70,7 +70,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>(INITIAL_USERS);
   const [branches, setBranches] = useState<Branch[]>(INITIAL_BRANCHES);
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState('announcements'); 
   const [items, setItems] = useState<AppItem[]>(INITIAL_ITEMS);
   const [shifts, setShifts] = useState<WorkShift[]>(INITIAL_SHIFTS);
   const [offRequests, setOffRequests] = useState<OffRequest[]>(INITIAL_OFF_REQUESTS);
@@ -84,7 +84,7 @@ export default function App() {
   const [directMessages, setDirectMessages] = useState<DirectMessage[]>([]);
   const [publishedMonths, setPublishedMonths] = useState<string[]>([]); 
   const [isSundayOffEnabled, setIsSundayOffEnabled] = useState(true);
-  const [isWeeklyScheduleEnabled, setIsWeeklyScheduleEnabled] = useState(true); // NEW STATE
+  const [isWeeklyScheduleEnabled, setIsWeeklyScheduleEnabled] = useState(true);
   const [availableJobTitles, setAvailableJobTitles] = useState<string[]>(['Recepcionista', 'Bilheteira', 'Atendente de Bombonière', 'Auxiliar de Limpeza', 'Gerente']);
 
   // --- NOTIFICATION CLEANUP LOGIC (1 HOUR) ---
@@ -134,15 +134,21 @@ export default function App() {
   // --- DATA FILTERING BY BRANCH ---
   const currentBranchId = user?.role === 'super_admin' ? null : user?.branchId;
 
-  const visibleBranches = branches; // Super admin sees all (managed in component), others don't see this usually.
+  const visibleBranches = branches; 
 
   const visibleUsers = user?.role === 'super_admin' 
       ? users 
       : users.filter(u => u.branchId === currentBranchId);
 
+  // UPDATE: Visible items now include PUBLIC branch items OR items TARGETED to the user
   const visibleItems = user?.role === 'super_admin' 
       ? items 
-      : items.filter(i => i.branchId === currentBranchId);
+      : items.filter(i => {
+          const matchesBranch = i.branchId === currentBranchId;
+          const isPublic = !i.targetUserId;
+          const isForMe = i.targetUserId === user?.id;
+          return matchesBranch && (isPublic || isForMe);
+      });
 
   const visibleShifts = user?.role === 'super_admin'
       ? shifts 
@@ -162,51 +168,6 @@ export default function App() {
     }
     return true;
   }) as AnnouncementItem[];
-
-  // --- CALCULATE NEXT SHIFT DYNAMICALLY ---
-  const getNextShiftDisplay = () => {
-    if (!visibleShifts.length) return { time: '--:--', info: 'Sem escala definida' };
-
-    const now = new Date();
-    const currentDayIndex = now.getDay();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
-    const currentTimeVal = currentHour * 60 + currentMinute;
-
-    // Loop through the next 7 days (0 = today, 1 = tomorrow...)
-    for (let i = 0; i < 7; i++) {
-      const targetIndex = (currentDayIndex + i) % 7;
-      const shift = visibleShifts.find(s => s.dayIndex === targetIndex);
-
-      if (shift && shift.type === 'Work' && shift.startTime && shift.startTime !== '-') {
-        // Parse shift time
-        const [h, m] = shift.startTime.split(':').map(Number);
-        const shiftTimeVal = h * 60 + m;
-
-        if (i === 0) {
-           // If it's today, only show if start time is in the future
-           if (currentTimeVal < shiftTimeVal) {
-               return { 
-                 time: shift.startTime, 
-                 info: `Hoje, ${shift.location || 'Local não def.'}` 
-               };
-           }
-        } else {
-           // Future day
-           const dayName = i === 1 ? 'Amanhã' : shift.dayOfWeek.split('-')[0];
-           return { 
-             time: shift.startTime, 
-             info: `${dayName}, ${shift.location || 'Local não def.'}` 
-           };
-        }
-      }
-    }
-    
-    return { time: '--:--', info: 'Sem próximos turnos' };
-  };
-
-  const nextShift = getNextShiftDisplay();
-
 
   const triggerNotification = (message: string, type: 'email' | 'sms' = 'email') => {
     const newNotif: Notification = {
@@ -246,7 +207,7 @@ export default function App() {
           if (foundUser.role === 'super_admin') {
              setActiveTab('branches');
           } else {
-             setActiveTab('dashboard');
+             setActiveTab('announcements'); 
           }
           resolve();
         } else {
@@ -276,8 +237,7 @@ export default function App() {
         };
         setBranches(prev => [...prev, newBranch]);
 
-        // --- CRITICAL FIX: Generate Default Shifts for this new branch ---
-        // Without this, the schedule page is broken for the new user
+        // Generate Default Shifts for this new branch
         const days = [
             {name: 'Quinta-feira', idx: 4}, 
             {name: 'Sexta-feira', idx: 5}, 
@@ -290,7 +250,7 @@ export default function App() {
         
         // Make Sunday open by default (Work)
         const newShifts: WorkShift[] = days.map((day, i) => ({
-            id: (Date.now() + i + 100).toString(), // Ensure unique IDs
+            id: (Date.now() + i + 100).toString(), 
             branchId: newBranch.id,
             dayOfWeek: day.name,
             dayIndex: day.idx,
@@ -301,7 +261,6 @@ export default function App() {
             totalHours: 8
         }));
         setShifts(prev => [...prev, ...newShifts]);
-        // -----------------------------------------------------------
 
         // Create Super Admin User
         const initials = name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
@@ -349,7 +308,7 @@ export default function App() {
 
   const handleLogout = () => {
     setUser(null);
-    setActiveTab('dashboard');
+    setActiveTab('announcements'); 
     setNotifications([]);
   };
 
@@ -360,7 +319,6 @@ export default function App() {
       id: Date.now().toString(),
       avatar: initials,
       themeColor: 'blue',
-      // Auto-assign branch if not super admin
       branchId: newUser.branchId || (user?.role !== 'super_admin' ? user?.branchId : undefined)
     };
     setUsers([...users, userWithId]);
@@ -397,8 +355,6 @@ export default function App() {
       };
       setBranches([...branches, newBranch]);
       
-      // Create Default Shifts for this new branch
-      // ORDERED: Quinta -> Quarta
       const days = [
           {name: 'Quinta-feira', idx: 4}, 
           {name: 'Sexta-feira', idx: 5}, 
@@ -409,13 +365,12 @@ export default function App() {
           {name: 'Quarta-feira', idx: 3}
       ];
       
-      // Make Sunday open by default (Work)
       const newShifts: WorkShift[] = days.map((day, i) => ({
           id: Date.now().toString() + i,
           branchId: newBranch.id,
           dayOfWeek: day.name,
           dayIndex: day.idx,
-          date: '--/--', // Placeholder
+          date: '--/--', 
           startTime: '09:00',
           endTime: day.name === 'Sábado' ? '13:00' : '18:00',
           type: 'Work',
@@ -429,7 +384,6 @@ export default function App() {
   const handleDeleteBranch = (id: string) => {
       if (window.confirm("Tem certeza? Isso não pode ser desfeito.")) {
           setBranches(prev => prev.filter(b => b.id !== id));
-          // Clean up users and data related to branch? In a real app yes.
       }
   };
 
@@ -445,7 +399,6 @@ export default function App() {
   const handleUpdateAvatar = (file: File) => {
       if (!user) return;
 
-      // Convert File to Base64
       const reader = new FileReader();
       reader.onloadend = () => {
           const base64String = reader.result as string;
@@ -458,8 +411,6 @@ export default function App() {
   };
 
   const handleUpdateShifts = (updatedShifts: WorkShift[]) => {
-    // Merge updated shifts back into main array
-    // We only updated the visible shifts (current branch), so we replace them in the main array
     const otherShifts = shifts.filter(s => s.branchId !== currentBranchId);
     setShifts([...otherShifts, ...updatedShifts]);
     triggerNotification('Os horários padrão da empresa foram atualizados.', 'sms');
@@ -474,11 +425,61 @@ export default function App() {
 
   const handleBulkUpdateDailySchedule = (newSchedules: DailySchedule[]) => {
       setDailySchedules(prev => {
-          // Remove any existing schedule that conflicts with new ones
           const filtered = prev.filter(s => !newSchedules.some(n => n.userId === s.userId && n.date === s.date));
           return [...filtered, ...newSchedules];
       });
-      triggerNotification('Escala atualizada em lote (Férias).', 'sms');
+      triggerNotification('Escala atualizada em lote.', 'sms');
+  };
+
+  // NEW: Handle 30-Day Vacation Assignment + Announcement
+  const handleAssign30DayVacation = (targetUserId: string, startDay: number, currentMonthDate: Date) => {
+      const targetUser = users.find(u => u.id === targetUserId);
+      if (!targetUser) return;
+
+      const newSchedules: DailySchedule[] = [];
+      const baseDate = new Date(currentMonthDate.getFullYear(), currentMonthDate.getMonth(), startDay);
+
+      // 1. Generate 30 days of Vacation
+      for (let i = 0; i < 30; i++) {
+          const d = new Date(baseDate);
+          d.setDate(baseDate.getDate() + i);
+          
+          // Use local date string to avoid timezone offset issues when creating ID/Date
+          const year = d.getFullYear();
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          const dateStr = `${year}-${month}-${day}`;
+
+          newSchedules.push({
+              id: `vac-${Date.now()}-${i}`,
+              userId: targetUserId,
+              date: dateStr,
+              type: 'Vacation'
+          });
+      }
+
+      // 2. Calculate Return Date (Day 31)
+      const returnDate = new Date(baseDate);
+      returnDate.setDate(baseDate.getDate() + 30);
+      const returnDateStr = returnDate.toLocaleDateString('pt-BR');
+
+      // 3. Update Schedule State
+      handleBulkUpdateDailySchedule(newSchedules);
+
+      // 4. Create Private Announcement for User
+      const newAnnouncement: AnnouncementItem = {
+          id: Date.now().toString(),
+          branchId: targetUser.branchId || '',
+          type: ContentType.ANNOUNCEMENT,
+          title: 'Férias Programadas',
+          date: new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }),
+          author: 'RH',
+          content: `Aproveite suas férias! Seu retorno está previsto para ${returnDateStr}.`,
+          targetUserId: targetUserId // Makes it private
+      };
+
+      setItems(prev => [newAnnouncement, ...prev]);
+      triggerNotification(`Férias de 30 dias atribuídas a ${targetUser.name}. Aviso de retorno criado.`, 'sms');
   };
 
   const handleTogglePublishMonth = (monthKey: string) => {
@@ -538,8 +539,6 @@ export default function App() {
       const statusText = status === 'approved' ? 'APROVADA' : 'NEGADA';
       triggerNotification(`Sua solicitação de folga para ${request.date} foi ${statusText}.`, 'email');
       if (status === 'approved') {
-          // FIX: Ensure day and month are 2 digits for YYYY-MM-DD format consistency with Calendar
-          // Handle year turnover (if request is for next year)
           const [d, m] = request.date.split('/');
           const day = d.padStart(2, '0');
           const month = m.padStart(2, '0');
@@ -547,7 +546,7 @@ export default function App() {
           const currentMonthIdx = new Date().getMonth() + 1;
           let year = new Date().getFullYear();
           
-          // If request month (e.g. 01) is smaller than current month (e.g. 12), assume next year
+          // Logic to determine if the request is for the next year (e.g. requesting Jan in Dec)
           if (parseInt(month) < currentMonthIdx) {
               year += 1;
           }
@@ -579,7 +578,6 @@ export default function App() {
     }
   };
 
-  // NEW: Toggle Weekly Schedule
   const handleToggleWeeklySchedule = () => {
       const newState = !isWeeklyScheduleEnabled;
       setIsWeeklyScheduleEnabled(newState);
@@ -588,8 +586,6 @@ export default function App() {
 
   const handleUpload = async (title: string, description: string, type: ContentType, file?: File, durationDays?: number | null) => {
     if (!user || !currentBranchId) return;
-    
-    // AI Analysis REMOVED
     
     let expirationDate;
     if (durationDays) {
@@ -624,7 +620,6 @@ export default function App() {
     const targetUser = users.find(u => u.id === userId);
     if (!targetUser || !targetUser.branchId) return;
 
-    // Helper function to create message after potential file processing
     const createMessage = (attachment?: { name: string, url: string, type: 'PDF'|'IMAGE' }) => {
         const newMsg: DirectMessage = {
             id: Date.now().toString(),
@@ -663,8 +658,6 @@ export default function App() {
     return <Login onLogin={handleLogin} onRecoverPassword={handleRecoverPassword} onRegister={handleRegister} />;
   }
 
-  const myMessages = directMessages.filter(m => m.userId === user.id);
-
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900 font-sans">
       
@@ -700,13 +693,12 @@ export default function App() {
             <div>
               <h1 className="text-xl md:text-3xl font-bold text-slate-900 truncate max-w-[200px] md:max-w-none">
                 {user.role === 'super_admin' && activeTab === 'branches' && 'Gestão de Unidades'}
-                {activeTab === 'dashboard' && `Bom dia, ${user.name.split(' ')[0]} 👋`}
-                {activeTab === 'schedule' && 'Escalas de Trabalho'}
                 {activeTab === 'announcements' && 'Comunicados'}
+                {activeTab === 'schedule' && 'Escalas de Trabalho'}
                 {activeTab === 'team' && 'Equipe e Acessos'}
                 {activeTab === 'settings' && 'Preferências'}
               </h1>
-              {user.branchId && activeTab === 'dashboard' && (
+              {user.branchId && (
                   <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 hidden md:inline-block">
                       {branches.find(b => b.id === user.branchId)?.name}
                   </span>
@@ -727,7 +719,6 @@ export default function App() {
                     )}
                 </button>
                 
-                {/* Notification Dropdown */}
                 {showNotifications && (
                   <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-50 animate-fade-in-up">
                      <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
@@ -780,86 +771,14 @@ export default function App() {
            </div>
         </header>
 
-        {/* Content Wrapper with padding-top to account for fixed header */}
         <div className="p-4 md:p-8 pt-24 md:pt-28 max-w-6xl mx-auto">
           
-          {/* SUPER ADMIN: BRANCH MANAGEMENT */}
           {user.role === 'super_admin' && activeTab === 'branches' && (
               <BranchManagement 
                   branches={branches} 
                   onAddBranch={handleAddBranch} 
                   onDeleteBranch={handleDeleteBranch} 
               />
-          )}
-
-          {activeTab === 'dashboard' && (
-             <div className="space-y-10 animate-fade-in">
-                  {myMessages.length > 0 && (
-                    <div className="space-y-3">
-                        {myMessages.map(msg => (
-                            <div key={msg.id} className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-lg flex items-start justify-between animate-fade-in-up shadow-sm">
-                                <div className="flex items-start space-x-3 flex-1">
-                                    <MessageSquare size={20} className="text-amber-600 mt-0.5 shrink-0" />
-                                    <div className="flex-1">
-                                        <h4 className="text-sm font-bold text-amber-800 mb-1">Lembrete da Administração</h4>
-                                        <p className="text-amber-900 text-sm leading-relaxed whitespace-pre-wrap">{msg.message}</p>
-                                        
-                                        {msg.attachment && (
-                                            <div className="mt-3">
-                                                <a 
-                                                    href={msg.attachment.url} 
-                                                    download={msg.attachment.name}
-                                                    className="inline-flex items-center px-3 py-1.5 bg-white border border-amber-200 rounded-lg text-xs font-bold text-amber-700 hover:bg-amber-100 transition-colors"
-                                                >
-                                                    <Paperclip size={12} className="mr-1.5" />
-                                                    {msg.attachment.type === 'PDF' ? 'Baixar PDF' : 'Ver Imagem'}: {msg.attachment.name}
-                                                </a>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                                <button 
-                                    onClick={() => handleMarkMessageRead(msg.id)}
-                                    className="ml-3 text-xs bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-1.5 rounded-lg transition-colors font-medium shrink-0"
-                                >
-                                    Entendido
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                     <div className={`bg-gradient-to-br from-${currentTheme}-600 to-${currentTheme}-700 p-6 rounded-2xl shadow-lg shadow-${currentTheme}-500/20 text-white flex flex-col justify-between relative overflow-hidden order-first`}>
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl -mr-10 -mt-10"></div>
-                        <div>
-                            <p className={`text-${currentTheme}-50 text-sm font-medium mb-1`}>Próximo Turno</p>
-                            <p className="text-3xl font-bold">{nextShift.time}</p>
-                            <p className={`text-sm text-${currentTheme}-100 mt-1`}>{nextShift.info}</p>
-                        </div>
-                     </div>
-                     <div className={`bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between group hover:border-${currentTheme}-200 transition-colors`}>
-                        <div>
-                            <p className="text-slate-500 text-sm font-medium mb-1">Avisos Recentes</p>
-                            <p className="text-3xl font-bold text-slate-800">{announcements.length}</p>
-                        </div>
-                        <div className={`w-12 h-12 bg-${currentTheme}-50 rounded-full flex items-center justify-center text-${currentTheme}-600 group-hover:scale-110 transition-transform`}>
-                            <span className="font-bold">!</span>
-                        </div>
-                     </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        <div className="lg:col-span-2 space-y-8">
-                            <Announcements 
-                                items={announcements.slice(0, 3)} 
-                                themeColor={currentTheme} 
-                                userRole={user.role}
-                                onDelete={handleDeleteAnnouncement}
-                            />
-                        </div>
-                  </div>
-             </div>
           )}
 
           {activeTab === 'schedule' && user.role !== 'super_admin' && (
@@ -879,7 +798,8 @@ export default function App() {
               onResolveRequest={handleResolveRequest}
               onDeleteRequest={handleDeleteRequest}
               onTogglePublish={handleTogglePublishMonth}
-              onToggleUserWeeklySchedule={handleToggleUserWeeklySchedule} // NEW PROP
+              onToggleUserWeeklySchedule={handleToggleUserWeeklySchedule}
+              onAssignVacation={handleAssign30DayVacation} // NEW PROP
               isSundayOffEnabled={isSundayOffEnabled}
               isWeeklyScheduleEnabled={isWeeklyScheduleEnabled}
             />
@@ -925,7 +845,6 @@ export default function App() {
         </div>
       </main>
 
-      {/* Modals */}
       {user.role === 'admin' && activeTab !== 'team' && activeTab !== 'settings' && activeTab !== 'schedule' && (
         <>
           <UploadModal 

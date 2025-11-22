@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { LayoutDashboard, Megaphone, Settings, LogOut, CalendarClock, Users, Building, X, Hexagon } from 'lucide-react';
+import { Megaphone, Settings, LogOut, CalendarClock, Users, Building, X, Hexagon } from 'lucide-react';
 import { User, ThemeColor } from '../types';
 
 interface SidebarProps {
@@ -26,9 +26,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, user,
   } else {
       // Admin de Filial e Funcionário
       menuItems.push(
-        { id: 'dashboard', icon: LayoutDashboard, label: 'Visão Geral' },
-        { id: 'schedule', icon: CalendarClock, label: 'Escalas' },
         { id: 'announcements', icon: Megaphone, label: 'Avisos' },
+        { id: 'schedule', icon: CalendarClock, label: 'Escalas' },
       );
 
       if (user?.role === 'admin') {

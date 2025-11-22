@@ -1,6 +1,7 @@
+
 import React from 'react';
 import { AnnouncementItem, ThemeColor, UserRole } from '../types';
-import { Calendar, Trash2, Clock } from 'lucide-react';
+import { Calendar, Trash2, Clock, UserCircle } from 'lucide-react';
 
 interface AnnouncementsProps {
   items: AnnouncementItem[];
@@ -19,7 +20,10 @@ export const Announcements: React.FC<AnnouncementsProps> = ({ items, themeColor,
 
       <div className="space-y-6">
         {items.map((item) => (
-          <div key={item.id} className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 hover:border-slate-300 transition-colors duration-300 group">
+          <div 
+            key={item.id} 
+            className={`bg-white rounded-2xl p-6 shadow-sm border ${item.targetUserId ? 'border-blue-200 bg-blue-50/30' : 'border-slate-100'} hover:border-slate-300 transition-colors duration-300 group`}
+          >
             <div className="flex flex-col space-y-4">
               <div className="flex justify-between items-start">
                 <div className="space-y-1 flex-1 mr-4">
@@ -29,6 +33,12 @@ export const Announcements: React.FC<AnnouncementsProps> = ({ items, themeColor,
                         <Calendar size={12} className="mr-1" />
                         <span>{item.date}</span>
                       </div>
+                      {item.targetUserId && (
+                           <div className="flex items-center text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 font-bold">
+                                <UserCircle size={12} className="mr-1" />
+                                <span>Mensagem Privada</span>
+                           </div>
+                      )}
                       {userRole === 'admin' && item.expirationDate && (
                           <div className="flex items-center text-amber-500 bg-amber-50 px-2 py-0.5 rounded border border-amber-100" title="Data de Expiração">
                              <Clock size={10} className="mr-1" />
