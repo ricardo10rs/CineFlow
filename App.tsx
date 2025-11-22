@@ -101,6 +101,34 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
+  // --- VACATION RETURN CHECK ---
+  useEffect(() => {
+    if (user) {
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+
+        const todayStr = today.toISOString().split('T')[0];
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+        const scheduleToday = dailySchedules.find(s => s.userId === user.id && s.date === todayStr);
+        const scheduleYesterday = dailySchedules.find(s => s.userId === user.id && s.date === yesterdayStr);
+
+        // Logic: If yesterday was Vacation AND today is NOT Vacation (either Work or undefined which defaults to Work)
+        const wasVacationYesterday = scheduleYesterday?.type === 'Vacation';
+        const isVacationToday = scheduleToday?.type === 'Vacation';
+
+        if (wasVacationYesterday && !isVacationToday) {
+             // Check if we already notified to avoid loop (simple in-memory check for this session)
+             const hasNotified = notifications.some(n => n.title === 'Bem-vindo de volta' && n.timestamp > Date.now() - 60000);
+             if (!hasNotified) {
+                 triggerNotification('🎉 Bem-vindo de volta! Sua escala semanal está disponível novamente.', 'sms');
+                 triggerNotification('Suas férias terminaram. Bom retorno ao trabalho!', 'email');
+             }
+        }
+    }
+  }, [user, dailySchedules]);
+
 
   // --- DATA FILTERING BY BRANCH ---
   const currentBranchId = user?.role === 'super_admin' ? null : user?.branchId;
@@ -441,6 +469,15 @@ export default function App() {
         const filtered = prev.filter(s => !(s.userId === schedule.userId && s.date === schedule.date));
         return [...filtered, schedule];
     });
+  };
+
+  const handleBulkUpdateDailySchedule = (newSchedules: DailySchedule[]) => {
+      setDailySchedules(prev => {
+          // Remove any existing schedule that conflicts with new ones
+          const filtered = prev.filter(s => !newSchedules.some(n => n.userId === s.userId && n.date === s.date));
+          return [...filtered, ...newSchedules];
+      });
+      triggerNotification('Escala atualizada em lote (Férias).', 'sms');
   };
 
   const handleTogglePublishMonth = (monthKey: string) => {
@@ -818,6 +855,7 @@ export default function App() {
               publishedMonths={publishedMonths}
               onUpdateShifts={handleUpdateShifts}
               onUpdateDailySchedule={handleUpdateDailySchedule}
+              onBulkUpdateDailySchedule={handleBulkUpdateDailySchedule}
               onRequestOff={handleRequestOff}
               onResolveRequest={handleResolveRequest}
               onDeleteRequest={handleDeleteRequest}

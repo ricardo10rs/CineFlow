@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { WorkShift, ThemeColor, UserRole, OffRequest, User, DailySchedule } from '../types';
-import { Clock, Pencil, X, Save, CalendarPlus, CheckCircle, XCircle, CalendarDays, ChevronLeft, ChevronRight, User as UserIcon, Trash2, Check, Eye, EyeOff, Lock } from 'lucide-react';
+import { Clock, Pencil, X, Save, CalendarPlus, CheckCircle, XCircle, CalendarDays, ChevronLeft, ChevronRight, User as UserIcon, Trash2, Check, Eye, EyeOff, Lock, Palmtree } from 'lucide-react';
 
 interface ScheduleProps {
   shifts: WorkShift[];
@@ -14,6 +14,7 @@ interface ScheduleProps {
   publishedMonths: string[];
   onUpdateShifts: (shifts: WorkShift[]) => void;
   onUpdateDailySchedule: (schedule: DailySchedule) => void;
+  onBulkUpdateDailySchedule: (schedules: DailySchedule[]) => void;
   onRequestOff: (date: string) => void;
   onResolveRequest: (requestId: string, status: 'approved' | 'rejected') => void;
   onDeleteRequest: (requestId: string) => void;
@@ -32,6 +33,7 @@ export const Schedule: React.FC<ScheduleProps> = ({
   publishedMonths,
   onUpdateShifts,
   onUpdateDailySchedule,
+  onBulkUpdateDailySchedule,
   onRequestOff,
   onResolveRequest,
   onDeleteRequest,
@@ -74,9 +76,10 @@ export const Schedule: React.FC<ScheduleProps> = ({
 
       // --- AUTO-FILL DATES LOGIC ---
       // Se estivermos editando a DATA do PRIMEIRO item da lista (index 0)
-      // Aceita formatos como "1/1", "01/01", "1/10", "10/10"
+      // Aceita formatos variados: "1/1", "01/01", "1/10", "10/10", "26/10"
       if (index === 0 && field === 'date' && typeof value === 'string') {
-          const match = value.match(/^(\d{1,2})\/(\d{1,2})$/);
+          // Regex mais flexível para capturar dia e mês
+          const match = value.match(/^(\d{1,2})[\/-](\d{1,2})$/);
           
           if (match) {
               const day = parseInt(match[1], 10);
@@ -131,12 +134,6 @@ export const Schedule: React.FC<ScheduleProps> = ({
 
   const { days, firstDay } = getDaysInMonth(currentMonth);
   
-  // Helper to map JS Day Index (0-6) to Shift Name in PT-BR
-  const getShiftForDayIndex = (dayIndex: number) => {
-     // We rely on the static dayIndex stored in the shift to avoid breakage if names are edited
-     return shifts.find(s => s.dayIndex === dayIndex);
-  };
-
   const getDailyStatus = (day: number) => {
     const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     
@@ -144,29 +141,14 @@ export const Schedule: React.FC<ScheduleProps> = ({
     const explicitSchedule = dailySchedules.find(s => s.userId === selectedUserId && s.date === dateStr);
     if (explicitSchedule) return explicitSchedule;
 
-    // 2. If no override, fall back to Weekly Default
-    const dateObj = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-    const dayIndex = dateObj.getDay();
-    const defaultShift = getShiftForDayIndex(dayIndex);
-
-    // Return a "Virtual" Schedule object based on default
-    if (defaultShift) {
-        // Map Weekly 'Off' to Monthly 'Off' or 'SundayOff' if it's Sunday
-        let type: 'Work' | 'Off' | 'SundayOff' | 'Vacation' = 'Work';
-        if (defaultShift.type === 'Off') {
-            type = dayIndex === 0 ? 'SundayOff' : 'Off';
-        }
-        
-        return {
-            id: `virtual-${dateStr}`,
-            userId: selectedUserId,
-            date: dateStr,
-            type: type,
-            isDefault: true // Flag to know it's not saved in DB yet
-        } as DailySchedule & { isDefault?: boolean };
-    }
-
-    return null;
+    // 2. If no override, ALWAYS DEFAULT TO WORK
+    return {
+        id: `virtual-${dateStr}`,
+        userId: selectedUserId,
+        date: dateStr,
+        type: 'Work',
+        isDefault: true // Flag to know it's not saved in DB yet
+    } as DailySchedule & { isDefault?: boolean };
   };
 
   const handleDayClick = (day: number) => {
@@ -175,54 +157,66 @@ export const Schedule: React.FC<ScheduleProps> = ({
     const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const currentStatus = getDailyStatus(day);
     
-    // Cycle logic: Work -> Off -> SundayOff -> Vacation -> Work
+    // Determine logic based on day of week
+    const clickedDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+    const isSunday = clickedDate.getDay() === 0;
+
+    // Cycle logic
     let newType: 'Work' | 'Off' | 'SundayOff' | 'Vacation' = 'Work';
     
     if (currentStatus) {
-        if (currentStatus.type === 'Work') newType = 'Off';
-        else if (currentStatus.type === 'Off') newType = 'SundayOff';
-        else if (currentStatus.type === 'SundayOff') newType = 'Vacation';
-        else newType = 'Work';
+        if (isSunday) {
+            // Cycle for Sunday: Work -> SundayOff -> Vacation -> Work
+            if (currentStatus.type === 'Work') newType = 'SundayOff';
+            else if (currentStatus.type === 'SundayOff') newType = 'Vacation';
+            else if (currentStatus.type === 'Vacation') newType = 'Work';
+            else newType = 'SundayOff'; // Fallback if currently 'Off'
+        } else {
+            // Cycle for Weekdays: Work -> Off -> Vacation -> Work
+            if (currentStatus.type === 'Work') newType = 'Off';
+            else if (currentStatus.type === 'Off') newType = 'Vacation';
+            else if (currentStatus.type === 'Vacation') newType = 'Work';
+            else newType = 'Work'; // Fallback if currently 'SundayOff'
+        }
     }
 
-    // 1. Update the clicked day
+    // 1. Update the clicked day (Standard single day update)
     onUpdateDailySchedule({
         id: currentStatus && !('isDefault' in currentStatus) ? currentStatus.id : Date.now().toString(),
         userId: selectedUserId,
         date: dateStr,
         type: newType
     });
+  };
 
-    // Check if clicked day is a Sunday
-    const clickedDateObj = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-    const isSunday = clickedDateObj.getDay() === 0;
+  const handleBulkFill = (type: 'Work' | 'Off' | 'Vacation') => {
+      if (!window.confirm(`Deseja preencher TODO o mês de ${currentMonth.toLocaleString('pt-BR', { month: 'long'})} como "${type === 'Work' ? 'Trabalho' : type === 'Off' ? 'Folga' : 'Férias'}"? Isso sobrescreverá configurações atuais.`)) {
+          return;
+      }
 
-    // 2. AUTO-FILL LOGIC: If it's the first occurrence (day <= 7) AND IT IS NOT A SUNDAY
-    // Exclude Sunday from auto-fill so admins can set Sundays individually
-    if (day <= 7 && !isSunday) {
-        let nextDay = day + 7;
-        const { days: totalDays } = getDaysInMonth(currentMonth);
+      const { days: totalDays } = getDaysInMonth(currentMonth);
+      const bulkUpdates: DailySchedule[] = [];
 
-        // Iterate through the rest of the month
-        while (nextDay <= totalDays) {
-            const nextDateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(nextDay).padStart(2, '0')}`;
-            
-            // Find existing status for next day to preserve ID if exists
-            const nextDayStatus = getDailyStatus(nextDay);
-            
-            // FIX: Generate a truly unique ID to avoid collisions in fast loops
-            const uniqueId = `${Date.now()}-${nextDay}-${Math.random().toString(36).substr(2, 5)}`;
-
-            onUpdateDailySchedule({
-                id: nextDayStatus && !('isDefault' in nextDayStatus) ? nextDayStatus.id : uniqueId,
-                userId: selectedUserId,
-                date: nextDateStr,
-                type: newType
-            });
-
-            nextDay += 7;
-        }
-    }
+      for (let d = 1; d <= totalDays; d++) {
+          // Skip Sundays from auto-fill to keep them manual/separate if desired? 
+          // Request said "ao clicar no primeiro domingo do mês muda todos os outros domingos" was bad.
+          // But bulk fill usually implies EVERYTHING. 
+          // However, usually Sunday logic is separate. Let's keep bulk fill as EVERYTHING for now as requested previously,
+          // but if the user specifically requested "SundayOff" logic restriction, we should respect the type passed.
+          // If they select 'Off', it applies 'Off' to Sundays too. Admin can correct later.
+          
+          const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+          const uniqueId = `${Date.now()}-${d}-${Math.random().toString(36).substr(2, 5)}`;
+          
+          bulkUpdates.push({
+              id: uniqueId,
+              userId: selectedUserId,
+              date: dateStr,
+              type: type
+          });
+      }
+      
+      onBulkUpdateDailySchedule(bulkUpdates);
   };
 
   // --- OFF REQUEST LOGIC ---
@@ -321,6 +315,11 @@ export const Schedule: React.FC<ScheduleProps> = ({
   const currentMonthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
   const isMonthPublished = publishedMonths.includes(`${selectedUserId}:${currentMonthKey}`);
   const canViewCalendar = userRole === 'admin' || isMonthPublished;
+
+  // Check if selected user is on vacation TODAY
+  const todayStr = new Date().toISOString().split('T')[0];
+  const todaySchedule = dailySchedules.find(s => s.userId === userId && s.date === todayStr);
+  const isVacationToday = todaySchedule?.type === 'Vacation';
 
   return (
     <div className="space-y-8 animate-fade-in relative">
@@ -434,42 +433,55 @@ export const Schedule: React.FC<ScheduleProps> = ({
             )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
-            {shifts.map((shift) => {
-                const isOff = shift.type === 'Off';
-                
-                // Calculate date for current week based on today
-                // Assumption: The shift.dayIndex is correct (0=Sun, 1=Mon, etc.)
-                // We want to show the date for the current week
-                const today = new Date();
-                const currentDayIdx = today.getDay();
-                // Calculate difference to get to the target day index
-                const diff = shift.dayIndex! - currentDayIdx; 
-                const shiftDate = new Date();
-                shiftDate.setDate(today.getDate() + diff);
-                
-                const dateString = shift.date || shiftDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+        {/* VACATION BLOCKING VIEW */}
+        {userRole !== 'admin' && isVacationToday ? (
+            <div className="py-12 flex flex-col items-center justify-center bg-orange-50 rounded-xl border border-orange-100 text-center">
+                <div className="bg-white p-4 rounded-full shadow-sm mb-4">
+                    <Palmtree size={40} className="text-orange-500" />
+                </div>
+                <h3 className="text-xl font-bold text-orange-700">Boas Férias!</h3>
+                <p className="text-orange-600 text-sm mt-2 max-w-xs">
+                    Aproveite seu descanso. Sua escala semanal estará disponível novamente quando você retornar.
+                </p>
+            </div>
+        ) : (
+            <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
+                {shifts.map((shift) => {
+                    const isOff = shift.type === 'Off';
+                    
+                    // Calculate date for current week based on today
+                    // Assumption: The shift.dayIndex is correct (0=Sun, 1=Mon, etc.)
+                    // We want to show the date for the current week
+                    const today = new Date();
+                    const currentDayIdx = today.getDay();
+                    // Calculate difference to get to the target day index
+                    const diff = shift.dayIndex! - currentDayIdx; 
+                    const shiftDate = new Date();
+                    shiftDate.setDate(today.getDate() + diff);
+                    
+                    const dateString = shift.date || shiftDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 
-                return (
-                    <div key={shift.id} className={`p-4 rounded-xl border flex flex-col items-center justify-center text-center ${isOff ? 'bg-slate-50 border-slate-200/60' : 'bg-white border-slate-200 shadow-sm'}`}>
-                        <span className="text-xs font-bold uppercase text-slate-400 mb-0.5">{shift.dayOfWeek.substring(0,3)}</span>
-                        {/* Displays manually entered date or calculated date */}
-                        <span className="text-xs font-medium text-slate-500 mb-1">{dateString}</span>
-                        <span className="text-sm font-bold text-slate-700 mb-2">{shift.dayOfWeek.split('-')[0]}</span>
-                        {isOff ? (
-                            <span className="text-xs font-medium text-slate-500 bg-slate-200/50 px-2 py-1 rounded">Fechado</span>
-                        ) : (
-                            <div className="flex flex-col items-center">
-                                <span className="text-[10px] text-slate-400 font-medium uppercase mb-0.5">Início</span>
-                                <span className={`text-sm font-bold text-${themeColor}-600`}>
-                                    {shift.startTime}
-                                </span>
-                            </div>
-                        )}
-                    </div>
-                )
-            })}
-        </div>
+                    return (
+                        <div key={shift.id} className={`p-4 rounded-xl border flex flex-col items-center justify-center text-center ${isOff ? 'bg-slate-50 border-slate-200/60' : 'bg-white border-slate-200 shadow-sm'}`}>
+                            <span className="text-xs font-bold uppercase text-slate-400 mb-0.5">{shift.dayOfWeek.substring(0,3)}</span>
+                            {/* Displays manually entered date or calculated date */}
+                            <span className="text-xs font-medium text-slate-500 mb-1">{dateString}</span>
+                            <span className="text-sm font-bold text-slate-700 mb-2">{shift.dayOfWeek.split('-')[0]}</span>
+                            {isOff ? (
+                                <span className="text-xs font-medium text-slate-500 bg-slate-200/50 px-2 py-1 rounded">Fechado</span>
+                            ) : (
+                                <div className="flex flex-col items-center">
+                                    <span className="text-[10px] text-slate-400 font-medium uppercase mb-0.5">Início</span>
+                                    <span className={`text-sm font-bold text-${themeColor}-600`}>
+                                        {shift.startTime}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                    )
+                })}
+            </div>
+        )}
       </div>
 
       {/* --- MONTHLY VIEW (INDIVIDUAL) --- */}
@@ -501,38 +513,48 @@ export const Schedule: React.FC<ScheduleProps> = ({
                     )}
                 </div>
 
-                <div className="flex items-center gap-3">
-                    <div className="flex items-center bg-slate-50 rounded-lg p-1 border border-slate-200">
-                        <button onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() - 1)))} className="p-1 hover:bg-slate-200 rounded text-slate-500 transition-all"><ChevronLeft size={16} /></button>
-                        <span className="mx-4 text-sm font-bold text-slate-700 min-w-[120px] text-center">
-                            {currentMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
-                        </span>
-                        <button onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() + 1)))} className="p-1 hover:bg-slate-200 rounded text-slate-500 transition-all"><ChevronRight size={16} /></button>
-                    </div>
-
+                <div className="flex flex-col items-end gap-2">
                     {userRole === 'admin' && (
-                        <button 
-                            onClick={() => onTogglePublish(`${selectedUserId}:${currentMonthKey}`)}
-                            className={`flex items-center px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border ${
-                                isMonthPublished 
-                                    ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' 
-                                    : 'bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-200'
-                            }`}
-                            title={isMonthPublished ? "Escala visível para o funcionário" : "Escala oculta (rascunho)"}
-                        >
-                            {isMonthPublished ? (
-                                <>
-                                    <Eye size={14} className="mr-2" />
-                                    Publicada
-                                </>
-                            ) : (
-                                <>
-                                    <EyeOff size={14} className="mr-2" />
-                                    Rascunho
-                                </>
-                            )}
-                        </button>
+                        <div className="flex items-center gap-2 mb-1">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase">Preencher Mês:</span>
+                            <button onClick={() => handleBulkFill('Work')} className="text-[10px] bg-blue-50 text-blue-600 px-2 py-1 rounded border border-blue-100 font-bold hover:bg-blue-100">Trabalho</button>
+                            <button onClick={() => handleBulkFill('Off')} className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-1 rounded border border-emerald-100 font-bold hover:bg-emerald-100">Folga</button>
+                            <button onClick={() => handleBulkFill('Vacation')} className="text-[10px] bg-orange-50 text-orange-600 px-2 py-1 rounded border border-orange-100 font-bold hover:bg-orange-100">Férias</button>
+                        </div>
                     )}
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center bg-slate-50 rounded-lg p-1 border border-slate-200">
+                            <button onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() - 1)))} className="p-1 hover:bg-slate-200 rounded text-slate-500 transition-all"><ChevronLeft size={16} /></button>
+                            <span className="mx-4 text-sm font-bold text-slate-700 min-w-[120px] text-center">
+                                {currentMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+                            </span>
+                            <button onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() + 1)))} className="p-1 hover:bg-slate-200 rounded text-slate-500 transition-all"><ChevronRight size={16} /></button>
+                        </div>
+
+                        {userRole === 'admin' && (
+                            <button 
+                                onClick={() => onTogglePublish(`${selectedUserId}:${currentMonthKey}`)}
+                                className={`flex items-center px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border ${
+                                    isMonthPublished 
+                                        ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' 
+                                        : 'bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-200'
+                                }`}
+                                title={isMonthPublished ? "Escala visível para o funcionário" : "Escala oculta (rascunho)"}
+                            >
+                                {isMonthPublished ? (
+                                    <>
+                                        <Eye size={14} className="mr-2" />
+                                        Publicada
+                                    </>
+                                ) : (
+                                    <>
+                                        <EyeOff size={14} className="mr-2" />
+                                        Rascunho
+                                    </>
+                                )}
+                            </button>
+                        )}
+                    </div>
                 </div>
              </div>
 
@@ -549,9 +571,9 @@ export const Schedule: React.FC<ScheduleProps> = ({
                  </div>
              ) : (
                  <>
-                    {/* FIX: Added overflow-x-auto wrapper to handle horizontal scrolling properly on mobile */}
-                    <div className="overflow-x-auto pb-2">
-                        <div className="grid grid-cols-7 gap-1 md:gap-2 min-w-[850px]">
+                    {/* MOBILE OPTIMIZATION: Wrapper for horizontal scroll with MIN-WIDTH */}
+                    <div className="overflow-x-auto pb-4">
+                        <div className="grid grid-cols-7 gap-2 min-w-[1000px]">
                             {/* Headers */}
                             {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day => (
                                 <div key={day} className="text-center text-[10px] font-bold text-slate-400 uppercase py-2">
@@ -561,7 +583,7 @@ export const Schedule: React.FC<ScheduleProps> = ({
 
                             {/* Empty Days */}
                             {Array.from({ length: firstDay }).map((_, i) => (
-                                <div key={`empty-${i}`} className="h-24 rounded-2xl bg-slate-50/50" />
+                                <div key={`empty-${i}`} className="h-28 rounded-2xl bg-slate-50/50" />
                             ))}
 
                             {/* Days */}
@@ -611,8 +633,7 @@ export const Schedule: React.FC<ScheduleProps> = ({
                                     }
                                 }
 
-                                // If there is a pending request and NOT an explicit override (explicit overrides like approved SundayOff take precedence)
-                                // *** ONLY SHOW PENDING STATUS FOR ADMIN ***
+                                // If there is a pending request and NOT an explicit override
                                 if (userRole === 'admin' && pendingRequest && (!status || ('isDefault' in status))) {
                                     bgClass = 'bg-amber-400 shadow-md shadow-amber-200 border-amber-400';
                                     textClass = 'text-white';
@@ -625,7 +646,7 @@ export const Schedule: React.FC<ScheduleProps> = ({
                                         key={day} 
                                         onClick={() => !isPending && handleDayClick(day)}
                                         className={`
-                                            h-24 p-2 flex flex-col justify-between transition-all relative rounded-2xl border cursor-default select-none
+                                            h-28 p-2 flex flex-col justify-between transition-all relative rounded-2xl border cursor-default select-none
                                             ${bgClass}
                                             ${(userRole === 'admin' && !isPending) ? 'cursor-pointer active:scale-95 hover:opacity-90' : ''}
                                             ${isToday ? `ring-2 ring-offset-2 ring-offset-white ring-yellow-500 z-10` : ''}
@@ -657,7 +678,7 @@ export const Schedule: React.FC<ScheduleProps> = ({
                                                 </div>
                                             ) : (
                                                 statusLabel && (
-                                                    <span className={`text-[9px] md:text-[10px] font-bold ${textClass} uppercase tracking-tight opacity-90 whitespace-nowrap w-full block truncate`}>
+                                                    <span className={`text-[10px] font-bold ${textClass} uppercase tracking-tight opacity-90 whitespace-nowrap w-full block truncate shrink-0`}>
                                                         {statusLabel}
                                                     </span>
                                                 )
