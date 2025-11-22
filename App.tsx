@@ -9,7 +9,6 @@ import { TeamManagement } from './components/TeamManagement';
 import { Settings } from './components/Settings';
 import { BranchManagement } from './components/BranchManagement';
 import { AppItem, AnnouncementItem, ContentType, WorkShift, User, ThemeColor, OffRequest, Notification, DailySchedule, DirectMessage, Branch } from './types';
-import { analyzeContent } from './services/geminiService';
 import { Plus, Bell, Menu, MessageSquare, Mail, Smartphone, Paperclip, Download } from 'lucide-react';
 
 // Initial Data with Branch IDs (assuming '1' is the main default branch)
@@ -27,7 +26,6 @@ const INITIAL_ITEMS: AppItem[] = [
     date: '25 Out',
     author: 'RH',
     content: 'Temos o prazer de anunciar as atualizações na nossa política de férias anual.',
-    analysis: { summary: "Férias agora podem ser divididas.", tags: ["Benefícios"], sentiment: "Positive" }
   }
 ];
 
@@ -342,6 +340,11 @@ export default function App() {
     alert('Dados do usuário atualizados.');
   };
 
+  const handleDeleteUser = (id: string) => {
+    setUsers(prev => prev.filter(u => u.id !== id));
+    triggerNotification('Usuário removido com sucesso.', 'sms');
+  };
+
   const handleAddJobTitle = (title: string) => {
     setAvailableJobTitles(prev => [...prev, title]);
   };
@@ -525,8 +528,9 @@ export default function App() {
 
   const handleUpload = async (title: string, description: string, type: ContentType, file?: File, durationDays?: number | null) => {
     if (!user || !currentBranchId) return;
-    const analysis = await analyzeContent(description, 'announcement');
-
+    
+    // AI Analysis REMOVED
+    
     let expirationDate;
     if (durationDays) {
         const date = new Date();
@@ -540,7 +544,6 @@ export default function App() {
       title,
       date: new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }),
       author: user.name,
-      analysis,
       type: ContentType.ANNOUNCEMENT,
       content: description,
       expirationDate
@@ -836,6 +839,7 @@ export default function App() {
                 availableJobTitles={availableJobTitles}
                 onAddUser={handleAddUser} 
                 onUpdateUser={handleUpdateUser}
+                onDeleteUser={handleDeleteUser}
                 onAddJobTitle={handleAddJobTitle}
                 onEditJobTitle={handleEditJobTitle}
                 onDeleteJobTitle={handleDeleteJobTitle}

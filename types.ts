@@ -35,19 +35,12 @@ export interface User {
   notificationPrefs?: NotificationPreferences;
 }
 
-export interface AIAnalysis {
-  summary: string;
-  tags: string[];
-  sentiment?: 'Positive' | 'Neutral' | 'Urgent';
-}
-
 export interface BaseItem {
   id: string;
   branchId: string;
   title: string;
   date: string;
   author: string;
-  analysis?: AIAnalysis;
 }
 
 export interface AnnouncementItem extends BaseItem {
@@ -69,7 +62,7 @@ export interface WorkShift {
   branchId: string;
   dayOfWeek: string;
   date?: string; // Added manually editable date
-  dayIndex?: number; // 0-6 for logic consistency
+  dayIndex: number; // 0-6 for logic consistency (Make mandatory for validation)
   startTime: string;
   endTime: string;
   type: 'Work' | 'Off' | 'Remote';

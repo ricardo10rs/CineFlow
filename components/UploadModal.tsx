@@ -119,9 +119,6 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSub
               className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all h-32 resize-none text-slate-900 placeholder-slate-400"
               placeholder="Escreva o comunicado aqui..."
             />
-            <p className="text-xs text-blue-600 mt-1 flex items-center">
-              <span className="mr-1">✨</span> A IA analisará este texto para gerar resumos e tags.
-            </p>
           </div>
 
           <div className="pt-4 flex justify-end">
@@ -133,7 +130,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSub
               {isSubmitting ? (
                 <>
                   <Loader2 className="animate-spin mr-2" size={18} />
-                  Processando IA...
+                  Salvando...
                 </>
               ) : (
                 'Publicar Item'

@@ -10,6 +10,7 @@ interface TeamManagementProps {
   availableJobTitles: string[];
   onAddUser: (user: Omit<User, 'id' | 'avatar'>) => void;
   onUpdateUser: (id: string, data: Partial<User>) => void;
+  onDeleteUser?: (id: string) => void; // Added optional prop
   onAddJobTitle: (title: string) => void;
   onEditJobTitle: (oldTitle: string, newTitle: string) => void;
   onDeleteJobTitle: (title: string) => void;
@@ -23,6 +24,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
   availableJobTitles,
   onAddUser, 
   onUpdateUser,
+  onDeleteUser,
   onAddJobTitle,
   onEditJobTitle,
   onDeleteJobTitle,
@@ -130,6 +132,12 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
       setRole(user.role);
       if (user.branchId) setBranchId(user.branchId);
       setPassword(''); // Don't show password, only set if changing
+  };
+
+  const handleDeleteClick = (userId: string, userName: string) => {
+      if (onDeleteUser && window.confirm(`Tem certeza que deseja remover o usuário ${userName}?`)) {
+          onDeleteUser(userId);
+      }
   };
 
   const handleOpenMessage = (user: User) => {
@@ -597,7 +605,11 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
                         <Pencil size={16} />
                       </button>
 
-                      <button className="text-slate-400 hover:text-red-500 transition-colors p-2 bg-white rounded-lg border border-slate-200 opacity-0 group-hover:opacity-100">
+                      <button 
+                        onClick={() => handleDeleteClick(u.id, u.name)}
+                        className="text-slate-400 hover:text-red-500 transition-colors p-2 bg-white rounded-lg border border-slate-200 opacity-0 group-hover:opacity-100"
+                        title="Excluir Usuário"
+                      >
                         <Trash2 size={16} />
                       </button>
                     </div>

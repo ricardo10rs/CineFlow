@@ -1,6 +1,6 @@
 import React from 'react';
 import { AnnouncementItem, ThemeColor, UserRole } from '../types';
-import { Sparkles, Calendar, Trash2, Clock } from 'lucide-react';
+import { Calendar, Trash2, Clock } from 'lucide-react';
 
 interface AnnouncementsProps {
   items: AnnouncementItem[];
@@ -40,16 +40,6 @@ export const Announcements: React.FC<AnnouncementsProps> = ({ items, themeColor,
                 </div>
                 
                 <div className="flex items-center space-x-3">
-                  {item.analysis?.sentiment && (
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold tracking-wide border ${
-                      item.analysis.sentiment === 'Urgent' ? 'bg-red-50 text-red-600 border-red-200' :
-                      item.analysis.sentiment === 'Positive' ? 'bg-green-50 text-green-600 border-green-200' :
-                      `bg-${themeColor}-50 text-${themeColor}-600 border-${themeColor}-200`
-                    }`}>
-                      {item.analysis.sentiment === 'Urgent' ? 'Prioridade' : item.analysis.sentiment === 'Positive' ? 'Positivo' : 'Info'}
-                    </span>
-                  )}
-
                   {userRole === 'admin' && (
                     <button 
                       onClick={() => onDelete(item.id)}
@@ -65,23 +55,6 @@ export const Announcements: React.FC<AnnouncementsProps> = ({ items, themeColor,
               <div className="text-slate-600 leading-relaxed">
                 <p>{item.content}</p>
               </div>
-
-              {/* AI Summary Section */}
-              {item.analysis && (
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mt-2">
-                  <div className="flex items-center space-x-2 mb-2">
-                     <Sparkles size={14} className={`text-${themeColor}-500`} />
-                     <p className="text-sm text-slate-500 font-medium italic">"{item.analysis.summary}"</p>
-                  </div>
-                  <div className="flex gap-2">
-                      {item.analysis.tags.map((tag, idx) => (
-                          <span key={idx} className="text-xs bg-white border border-slate-200 text-slate-500 px-2 py-1 rounded-md font-medium">
-                              #{tag}
-                          </span>
-                      ))}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         ))}
