@@ -35,7 +35,8 @@ const INITIAL_SHIFTS: WorkShift[] = [
   { id: '4', branchId: '1', dayOfWeek: 'Quinta-feira', date: '26/10', dayIndex: 4, startTime: '09:00', endTime: '18:00', type: 'Work', location: 'Escritório', totalHours: 8 },
   { id: '5', branchId: '1', dayOfWeek: 'Sexta-feira', date: '27/10', dayIndex: 5, startTime: '09:00', endTime: '18:00', type: 'Work', location: 'Escritório', totalHours: 8 },
   { id: '6', branchId: '1', dayOfWeek: 'Sábado', date: '28/10', dayIndex: 6, startTime: '09:00', endTime: '13:00', type: 'Work', location: 'Escritório', totalHours: 4 },
-  { id: '7', branchId: '1', dayOfWeek: 'Domingo', date: '29/10', dayIndex: 0, startTime: '-', endTime: '-', type: 'Off', totalHours: 0 },
+  // Sunday Default OPEN
+  { id: '7', branchId: '1', dayOfWeek: 'Domingo', date: '29/10', dayIndex: 0, startTime: '09:00', endTime: '18:00', type: 'Work', location: 'Escritório', totalHours: 8 },
   { id: '1', branchId: '1', dayOfWeek: 'Segunda-feira', date: '30/10', dayIndex: 1, startTime: '09:00', endTime: '18:00', type: 'Work', location: 'Escritório', totalHours: 8 },
   { id: '2', branchId: '1', dayOfWeek: 'Terça-feira', date: '31/10', dayIndex: 2, startTime: '09:00', endTime: '18:00', type: 'Work', location: 'Escritório', totalHours: 8 },
   { id: '3', branchId: '1', dayOfWeek: 'Quarta-feira', date: '01/11', dayIndex: 3, startTime: '09:00', endTime: '18:00', type: 'Work', location: 'Escritório', totalHours: 8 },
@@ -44,7 +45,8 @@ const INITIAL_SHIFTS: WorkShift[] = [
   { id: '24', branchId: '2', dayOfWeek: 'Quinta-feira', date: '26/10', dayIndex: 4, startTime: '10:00', endTime: '19:00', type: 'Work', location: 'Loja Copacabana', totalHours: 8 },
   { id: '25', branchId: '2', dayOfWeek: 'Sexta-feira', date: '27/10', dayIndex: 5, startTime: '10:00', endTime: '19:00', type: 'Work', location: 'Loja Copacabana', totalHours: 8 },
   { id: '26', branchId: '2', dayOfWeek: 'Sábado', date: '28/10', dayIndex: 6, startTime: '09:00', endTime: '14:00', type: 'Work', location: 'Loja Copacabana', totalHours: 5 },
-  { id: '27', branchId: '2', dayOfWeek: 'Domingo', date: '29/10', dayIndex: 0, startTime: '-', endTime: '-', type: 'Off', totalHours: 0 },
+  // Sunday Default OPEN
+  { id: '27', branchId: '2', dayOfWeek: 'Domingo', date: '29/10', dayIndex: 0, startTime: '10:00', endTime: '19:00', type: 'Work', location: 'Loja Copacabana', totalHours: 8 },
   { id: '21', branchId: '2', dayOfWeek: 'Segunda-feira', date: '30/10', dayIndex: 1, startTime: '10:00', endTime: '19:00', type: 'Work', location: 'Loja Copacabana', totalHours: 8 },
   { id: '22', branchId: '2', dayOfWeek: 'Terça-feira', date: '31/10', dayIndex: 2, startTime: '10:00', endTime: '19:00', type: 'Work', location: 'Loja Copacabana', totalHours: 8 },
   { id: '23', branchId: '2', dayOfWeek: 'Quarta-feira', date: '01/11', dayIndex: 3, startTime: '10:00', endTime: '19:00', type: 'Work', location: 'Loja Copacabana', totalHours: 8 },
@@ -257,15 +259,16 @@ export default function App() {
             {name: 'Quarta-feira', idx: 3}
         ];
         
+        // Make Sunday open by default (Work)
         const newShifts: WorkShift[] = days.map((day, i) => ({
             id: (Date.now() + i + 100).toString(), // Ensure unique IDs
             branchId: newBranch.id,
             dayOfWeek: day.name,
             dayIndex: day.idx,
             date: '--/--', 
-            startTime: day.name === 'Domingo' ? '-' : '09:00',
-            endTime: day.name === 'Domingo' ? '-' : (day.name === 'Sábado' ? '13:00' : '18:00'),
-            type: day.name === 'Domingo' ? 'Off' : 'Work',
+            startTime: '09:00',
+            endTime: day.name === 'Sábado' ? '13:00' : '18:00',
+            type: 'Work',
             totalHours: 8
         }));
         setShifts(prev => [...prev, ...newShifts]);
@@ -377,15 +380,16 @@ export default function App() {
           {name: 'Quarta-feira', idx: 3}
       ];
       
+      // Make Sunday open by default (Work)
       const newShifts: WorkShift[] = days.map((day, i) => ({
           id: Date.now().toString() + i,
           branchId: newBranch.id,
           dayOfWeek: day.name,
           dayIndex: day.idx,
           date: '--/--', // Placeholder
-          startTime: day.name === 'Domingo' ? '-' : '09:00',
-          endTime: day.name === 'Domingo' ? '-' : (day.name === 'Sábado' ? '13:00' : '18:00'),
-          type: day.name === 'Domingo' ? 'Off' : 'Work',
+          startTime: '09:00',
+          endTime: day.name === 'Sábado' ? '13:00' : '18:00',
+          type: 'Work',
           totalHours: 8
       }));
       

@@ -35,12 +35,19 @@ export interface User {
   notificationPrefs?: NotificationPreferences;
 }
 
+export interface AIAnalysis {
+  summary: string;
+  tags: string[];
+  sentiment: string;
+}
+
 export interface BaseItem {
   id: string;
   branchId: string;
   title: string;
   date: string;
   author: string;
+  analysis?: AIAnalysis;
 }
 
 export interface AnnouncementItem extends BaseItem {

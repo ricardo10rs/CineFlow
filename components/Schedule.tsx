@@ -193,8 +193,13 @@ export const Schedule: React.FC<ScheduleProps> = ({
         type: newType
     });
 
-    // 2. AUTO-FILL LOGIC: If it's the first occurrence (day <= 7), update subsequent weeks
-    if (day <= 7) {
+    // Check if clicked day is a Sunday
+    const clickedDateObj = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+    const isSunday = clickedDateObj.getDay() === 0;
+
+    // 2. AUTO-FILL LOGIC: If it's the first occurrence (day <= 7) AND IT IS NOT A SUNDAY
+    // Exclude Sunday from auto-fill so admins can set Sundays individually
+    if (day <= 7 && !isSunday) {
         let nextDay = day + 7;
         const { days: totalDays } = getDaysInMonth(currentMonth);
 
