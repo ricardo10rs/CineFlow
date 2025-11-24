@@ -1,6 +1,6 @@
 
-import React from 'react';
-import { Megaphone, Settings, LogOut, CalendarClock, Users, Building, X, Hexagon, Timer, Clock } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Megaphone, Settings, LogOut, CalendarClock, Users, Building, X, Hexagon, Timer, Clock, GripVertical, LucideIcon } from 'lucide-react';
 import { User, ThemeColor } from '../types';
 
 interface SidebarProps {
@@ -13,43 +13,103 @@ interface SidebarProps {
   setMobileMenuOpen: (open: boolean) => void;
 }
 
+type MenuItem = {
+  id: string;
+  icon: LucideIcon;
+  label: string;
+};
+
 export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, user, onLogout, themeColor, mobileMenuOpen, setMobileMenuOpen }) => {
-  const menuItems = [];
+  const [orderedItems, setOrderedItems] = useState<MenuItem[]>([]);
+  const dragItem = useRef<number | null>(null);
+  const dragOverItem = useRef<number | null>(null);
 
-  // Menu condicional por Role
-  if (user?.role === 'super_admin') {
-      menuItems.push(
-        { id: 'branches', icon: Building, label: 'Unidades' },
-        { id: 'break_monitor', icon: Timer, label: 'Monitoramento' },
-        { id: 'team', icon: Users, label: 'Admin & Equipes' },
-        { id: 'settings', icon: Settings, label: 'Configurações' }
-      );
-  } else {
-      // Admin de Filial e Funcionário
-      menuItems.push(
-        { id: 'announcements', icon: Megaphone, label: 'Avisos' },
-        { id: 'board', icon: Clock, label: 'Intervalo' },
-        { id: 'schedule', icon: CalendarClock, label: 'Escalas' },
-      );
+  // 1. Define all possible items based on roles
+  useEffect(() => {
+    if (!user) return;
 
-      if (user?.role === 'admin') {
-        menuItems.push(
+    let baseItems: MenuItem[] = [];
+
+    if (user.role === 'super_admin') {
+        baseItems = [
+          { id: 'branches', icon: Building, label: 'Unidades' },
           { id: 'break_monitor', icon: Timer, label: 'Monitoramento' },
-          { id: 'team', icon: Users, label: 'Minha Equipe' }
-        );
-      }
-      
-      menuItems.push({ id: 'settings', icon: Settings, label: 'Configurações' });
-  }
+          { id: 'team', icon: Users, label: 'Admin & Equipes' },
+          { id: 'settings', icon: Settings, label: 'Configurações' }
+        ];
+    } else {
+        // Admin de Filial e Funcionário
+        baseItems = [
+          { id: 'announcements', icon: Megaphone, label: 'Avisos' },
+          { id: 'board', icon: Clock, label: 'Intervalo' },
+          { id: 'schedule', icon: CalendarClock, label: 'Escalas' },
+        ];
+
+        if (user.role === 'admin') {
+          baseItems.push(
+            { id: 'break_monitor', icon: Timer, label: 'Monitoramento' },
+            { id: 'team', icon: Users, label: 'Minha Equipe' }
+          );
+        }
+        
+        baseItems.push({ id: 'settings', icon: Settings, label: 'Configurações' });
+    }
+
+    // 2. Load saved order from LocalStorage
+    const savedOrder = localStorage.getItem(`cineflow_menu_order_${user.id}`);
+    
+    if (savedOrder) {
+        const orderIds = JSON.parse(savedOrder) as string[];
+        // Sort baseItems according to saved order, appending new/unknown items at the end
+        const sorted = [...baseItems].sort((a, b) => {
+            const indexA = orderIds.indexOf(a.id);
+            const indexB = orderIds.indexOf(b.id);
+            // If item not found in saved order (new feature), put at end
+            if (indexA === -1) return 1;
+            if (indexB === -1) return -1;
+            return indexA - indexB;
+        });
+        setOrderedItems(sorted);
+    } else {
+        setOrderedItems(baseItems);
+    }
+  }, [user?.role, user?.id]);
 
   const handleTabClick = (id: string) => {
     setActiveTab(id);
-    setMobileMenuOpen(false); // Fecha o menu no mobile ao clicar
+    setMobileMenuOpen(false);
+  };
+
+  // Drag and Drop Handlers
+  const handleSort = () => {
+    if (dragItem.current === null || dragOverItem.current === null) return;
+
+    // Duplicate items
+    const _items = [...orderedItems];
+    
+    // Remove and save the dragged item content
+    const draggedItemContent = _items.splice(dragItem.current, 1)[0];
+
+    // Switch the position
+    _items.splice(dragOverItem.current, 0, draggedItemContent);
+
+    // Reset position refs
+    dragItem.current = null;
+    dragOverItem.current = null;
+
+    // Update state
+    setOrderedItems(_items);
+
+    // Save to LocalStorage
+    if (user) {
+        const ids = _items.map(i => i.id);
+        localStorage.setItem(`cineflow_menu_order_${user.id}`, JSON.stringify(ids));
+    }
   };
 
   return (
     <>
-      {/* Mobile Overlay Backdrop - Adjusted to start below header (top-20) */}
+      {/* Mobile Overlay Backdrop */}
       {mobileMenuOpen && (
         <div 
           className="fixed inset-0 top-20 bg-black/60 z-20 md:hidden backdrop-blur-sm transition-opacity"
@@ -67,12 +127,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, user,
             ? 'opacity-100 visible translate-y-0' 
             : 'opacity-0 invisible -translate-y-4 pointer-events-none'}
           
-          /* Desktop: Side Drawer Style (Reset mobile styles) */
+          /* Desktop: Side Drawer Style */
           md:top-0 md:h-screen md:w-64 md:opacity-100 md:visible md:translate-y-0 md:pointer-events-auto
           md:flex md:flex-col md:border-b-0 md:border-r md:static
         `}
       >
-        {/* Header - Hidden on Mobile Dropdown (Redundant with App Header) */}
+        {/* Header - Hidden on Mobile */}
         <div className="hidden md:flex p-6 md:p-8 items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className={`bg-${themeColor}-600 p-1.5 rounded-lg transition-colors duration-300 shadow-lg shadow-${themeColor}-900/50`}>
@@ -80,10 +140,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, user,
             </div>
             <span className="text-xl font-bold tracking-tight text-white">CineFlow</span>
           </div>
-          {/* Close button not needed on desktop */}
         </div>
 
-        {/* User Info - Compact on Mobile */}
+        {/* User Info */}
         {user && (
           <div className="px-4 py-4 md:px-6 md:py-0 md:mb-6 border-b md:border-none border-slate-800">
             <div className="bg-slate-800/50 rounded-xl p-3 flex items-center space-x-3 border border-slate-700/50">
@@ -104,23 +163,37 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, user,
           </div>
         )}
 
-        {/* Navigation Items */}
+        {/* Navigation Items (Draggable) */}
         <nav className="flex-1 px-4 py-2 space-y-2 overflow-y-auto max-h-[60vh] md:max-h-full">
-          {menuItems.map((item) => (
-            <button
+          {orderedItems.map((item, index) => (
+            <div
               key={item.id}
-              onClick={() => handleTabClick(item.id)}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
-                activeTab === item.id
-                  ? `bg-${themeColor}-600 text-white shadow-lg shadow-${themeColor}-900/20`
-                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-              }`}
-              role="tab"
-              aria-selected={activeTab === item.id}
+              draggable
+              onDragStart={() => (dragItem.current = index)}
+              onDragEnter={() => (dragOverItem.current = index)}
+              onDragEnd={handleSort}
+              onDragOver={(e) => e.preventDefault()}
+              className="touch-none" // Improve touch interaction
             >
-              <item.icon size={20} strokeWidth={1.5} className={activeTab === item.id ? 'text-white' : 'text-slate-400 group-hover:text-white'} />
-              <span className="text-sm font-medium">{item.label}</span>
-            </button>
+                <button
+                onClick={() => handleTabClick(item.id)}
+                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 group relative cursor-pointer ${
+                    activeTab === item.id
+                    ? `bg-${themeColor}-600 text-white shadow-lg shadow-${themeColor}-900/20`
+                    : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                }`}
+                role="tab"
+                aria-selected={activeTab === item.id}
+                >
+                {/* Drag Handle Indicator (Visible on Hover) */}
+                <div className="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-30 cursor-grab active:cursor-grabbing hidden md:block">
+                    <GripVertical size={14} />
+                </div>
+
+                <item.icon size={20} strokeWidth={1.5} className={activeTab === item.id ? 'text-white' : 'text-slate-400 group-hover:text-white'} />
+                <span className="text-sm font-medium">{item.label}</span>
+                </button>
+            </div>
           ))}
         </nav>
 
