@@ -107,6 +107,7 @@ export interface Notification {
   date: string;
   timestamp: number; // Timestamp para expiração automática
   read: boolean;
+  targetUserId?: string; // NEW: ID do usuário alvo para notificações privadas
 }
 
 export interface DirectMessage {
@@ -121,6 +122,17 @@ export interface DirectMessage {
     url: string; // Base64
     type: 'PDF' | 'IMAGE';
   };
+}
+
+export interface BreakSession {
+  id: string;
+  userId: string;
+  branchId: string;
+  userName: string;
+  userAvatar: string;
+  startTime: number; // Timestamp do início do intervalo
+  duration: number; // Duração em segundos (ex: 3600 para 1h)
+  completedAt?: number; // Timestamp de quando terminou (para histórico)
 }
 
 export interface ChartData {

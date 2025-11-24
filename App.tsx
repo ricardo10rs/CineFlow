@@ -9,7 +9,8 @@ import { TeamManagement } from './components/TeamManagement';
 import { Settings } from './components/Settings';
 import { BranchManagement } from './components/BranchManagement';
 import { Board } from './components/Board';
-import { AppItem, AnnouncementItem, ContentType, WorkShift, User, ThemeColor, OffRequest, Notification, DailySchedule, DirectMessage, Branch } from './types';
+import { BreakMonitor } from './components/BreakMonitor'; // New Import
+import { AppItem, AnnouncementItem, ContentType, WorkShift, User, ThemeColor, OffRequest, Notification, DailySchedule, DirectMessage, Branch, BreakSession } from './types';
 import { Plus, Bell, Menu, Mail, Smartphone } from 'lucide-react';
 
 // Initial Data with Branch IDs (assuming '1' is the main default branch)
@@ -18,17 +19,8 @@ const INITIAL_BRANCHES: Branch[] = [
   { id: '2', name: 'Filial Rio de Janeiro', location: 'Copacabana' }
 ];
 
-const INITIAL_ITEMS: AppItem[] = [
-  {
-    id: '1',
-    branchId: '1',
-    type: ContentType.ANNOUNCEMENT,
-    title: 'Nova Política de Férias',
-    date: '25 Out',
-    author: 'RH',
-    content: 'Temos o prazer de anunciar as atualizações na nossa política de férias anual.',
-  }
-];
+// START EMPTY - Mural Clean State
+const INITIAL_ITEMS: AppItem[] = [];
 
 // SHIFTS REORDERED: Thursday (Qui) -> Wednesday (Qua)
 const INITIAL_SHIFTS: WorkShift[] = [
@@ -67,6 +59,33 @@ const INITIAL_OFF_REQUESTS: OffRequest[] = [
   { id: '101', branchId: '1', userId: '2', userName: 'Maria Bilheteira', date: '29/10', status: 'pending', requestDate: '24/10 10:30' }
 ];
 
+// Helper to generate mock history for "Yesterday"
+const getYesterdayBreakHistory = (): BreakSession[] => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    // Set fixed hours for consistent sorting demo
+    const time1 = new Date(yesterday).setHours(11, 30, 0, 0);
+    const time2 = new Date(yesterday).setHours(12, 15, 0, 0);
+    const time3 = new Date(yesterday).setHours(13, 0, 0, 0);
+
+    return [
+        {
+            id: 'h1', userId: '2', branchId: '1', userName: 'Maria Bilheteira', userAvatar: 'MB',
+            startTime: time1, duration: 3600, completedAt: time1 + 3600000 
+        },
+        {
+            id: 'h2', userId: '3', branchId: '2', userName: 'João Rio', userAvatar: 'JR',
+            startTime: time2, duration: 3600, completedAt: time2 + 3600000
+        },
+        // Mock user that doesn't exist in INITIAL_USERS list just for history demo
+        {
+            id: 'h3', userId: '99', branchId: '1', userName: 'Carlos Pipoca', userAvatar: 'CP',
+            startTime: time3, duration: 3600, completedAt: time3 + 3600000
+        }
+    ];
+};
+
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>(INITIAL_USERS);
@@ -87,6 +106,8 @@ export default function App() {
   const [isSundayOffEnabled, setIsSundayOffEnabled] = useState(true);
   const [isWeeklyScheduleEnabled, setIsWeeklyScheduleEnabled] = useState(true);
   const [availableJobTitles, setAvailableJobTitles] = useState<string[]>(['Recepcionista', 'Bilheteira', 'Atendente de Bombonière', 'Auxiliar de Limpeza', 'Gerente']);
+  const [activeBreaks, setActiveBreaks] = useState<BreakSession[]>([]);
+  const [breakHistory, setBreakHistory] = useState<BreakSession[]>(getYesterdayBreakHistory());
 
   // --- NOTIFICATION CLEANUP LOGIC (1 HOUR) ---
   useEffect(() => {
@@ -102,6 +123,25 @@ export default function App() {
 
     return () => clearInterval(interval);
   }, []);
+
+  // --- BREAK HISTORY CLEANUP LOGIC (48 HOURS) ---
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const fortyEightHours = 48 * 60 * 60 * 1000;
+      
+      setBreakHistory(prev => {
+         // Keep only history where completion time is less than 48 hours ago
+         return prev.filter(session => {
+            if (!session.completedAt) return false;
+            return (now - session.completedAt) < fortyEightHours;
+         });
+      });
+    }, 60000); // Check every minute
+    
+    return () => clearInterval(interval);
+  }, []);
+
 
   // --- VACATION RETURN CHECK ---
   useEffect(() => {
@@ -158,6 +198,14 @@ export default function App() {
   const visibleRequests = user?.role === 'super_admin'
       ? offRequests
       : offRequests.filter(r => r.branchId === currentBranchId);
+      
+  const visibleBreaks = user?.role === 'super_admin'
+      ? activeBreaks
+      : activeBreaks.filter(b => b.branchId === currentBranchId);
+
+  const visibleBreakHistory = user?.role === 'super_admin'
+      ? breakHistory
+      : breakHistory.filter(b => b.branchId === currentBranchId);
 
   // Filter announcements expiration
   const announcements = visibleItems.filter(i => {
@@ -170,7 +218,7 @@ export default function App() {
     return true;
   }) as AnnouncementItem[];
 
-  const triggerNotification = (message: string, type: 'email' | 'sms' = 'email') => {
+  const triggerNotification = (message: string, type: 'email' | 'sms' = 'email', targetUserId?: string) => {
     const newNotif: Notification = {
       id: Date.now().toString(),
       title: type === 'email' ? 'Novo Email' : 'Novo SMS',
@@ -178,10 +226,18 @@ export default function App() {
       type: 'info',
       date: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
       timestamp: Date.now(), // Save creation time
-      read: false
+      read: false,
+      targetUserId // Optional: If set, only visible to this user
     };
     setNotifications(prev => [newNotif, ...prev]);
 
+    // Toast is immediate visual feedback for the current user
+    // If targetUserId is set and it's NOT me, I shouldn't see the toast unless I'm the sender (handled separately if needed)
+    // For now, we show toast to the person triggering the action or receiving it if they are logged in.
+    // In this mocked app, we'll show toast to current user if it's meant for them OR if no target specified.
+    
+    // However, for admin sending 'Late Notification', we might want a different toast for admin vs employee.
+    // Simplifying: Show toast always for immediate feedback in this demo context.
     const toastId = Date.now().toString() + type;
     setActiveToasts(prev => [...prev, { id: toastId, msg: message, type }]);
     setTimeout(() => {
@@ -310,7 +366,8 @@ export default function App() {
   const handleLogout = () => {
     setUser(null);
     setActiveTab('announcements'); 
-    setNotifications([]);
+    // IMPORTANT: Do NOT clear notifications here. They need to persist so the user sees them on login.
+    // setNotifications([]); 
   };
 
   const handleAddUser = (newUser: Omit<User, 'id' | 'avatar'>) => {
@@ -651,6 +708,58 @@ export default function App() {
     }
   };
 
+  // BREAK MONITOR LOGIC
+  const handleStartBreak = (startTime: number) => {
+      if (!user) return;
+      const newBreak: BreakSession = {
+          id: Date.now().toString(),
+          userId: user.id,
+          branchId: user.branchId || '',
+          userName: user.name,
+          userAvatar: user.avatar,
+          startTime: startTime,
+          duration: 3600 // 1 Hour default
+      };
+      setActiveBreaks(prev => [...prev.filter(b => b.userId !== user.id), newBreak]);
+      triggerNotification('Seu intervalo começou. Bom descanso!', 'sms');
+  };
+
+  const handleEndBreak = () => {
+      if (!user) return;
+      const session = activeBreaks.find(b => b.userId === user.id);
+      
+      // Move to History
+      if (session) {
+          const completedSession: BreakSession = {
+              ...session,
+              completedAt: Date.now()
+          };
+          setBreakHistory(prev => [completedSession, ...prev]);
+      }
+
+      setActiveBreaks(prev => prev.filter(b => b.userId !== user.id));
+      triggerNotification('Intervalo encerrado. Bom retorno!', 'sms');
+  };
+  
+  // MANUAL LATE NOTIFICATION
+  const handleNotifyLate = (userId: string, userName: string) => {
+      // Create a targeted notification for the employee
+      triggerNotification(
+          `⚠️ ATENÇÃO: Seu intervalo excedeu o tempo limite de 1 hora. Por favor, retorne ao trabalho imediatamente.`, 
+          'sms', 
+          userId
+      );
+      
+      // Show confirmation toast to Admin (sender)
+      // This is purely for the admin's UI feedback
+      const toastId = Date.now().toString();
+      setActiveToasts(prev => [...prev, { id: toastId, msg: `Notificação de atraso enviada para ${userName}.`, type: 'sms' }]);
+      setTimeout(() => {
+        setActiveToasts(prev => prev.filter(t => t.id !== toastId));
+      }, 4000);
+  };
+
+
   const handleMarkMessageRead = (id: string) => {
     setDirectMessages(prev => prev.filter(msg => msg.id !== id));
   };
@@ -659,11 +768,15 @@ export default function App() {
     return <Login onLogin={handleLogin} onRecoverPassword={handleRecoverPassword} onRegister={handleRegister} />;
   }
 
+  // Filter notifications relevant to current user for the header dropdown
+  // Show if global (no target) OR if targeted to me
+  const visibleNotifications = notifications.filter(n => !n.targetUserId || n.targetUserId === user.id);
+
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900 font-sans">
       
-      {/* Notifications */}
-      <div className="fixed top-4 right-4 z-50 space-y-2 max-w-md w-full px-4 md:px-0 pointer-events-none">
+      {/* Notifications Toasts - Immediate Feedback */}
+      <div className="fixed top-4 right-4 z-40 space-y-2 max-w-md w-full px-4 md:px-0 pointer-events-none">
         {activeToasts.map(toast => (
           <div key={toast.id} className="bg-white text-slate-800 border border-slate-200 px-4 py-3 rounded-lg shadow-xl flex items-center text-sm animate-fade-in-left pointer-events-auto">
             {toast.type === 'email' ? <Mail size={16} className="mr-3 text-blue-500 shrink-0" /> : <Smartphone size={16} className="mr-3 text-green-500 shrink-0" />}
@@ -686,10 +799,11 @@ export default function App() {
       <main className="flex-1 md:ml-64 relative">
         
         {/* Fixed Header */}
-        <header className="fixed top-0 right-0 left-0 md:left-64 z-20 bg-slate-50/95 backdrop-blur-sm border-b border-slate-200 px-4 py-4 md:px-8 flex items-center justify-between transition-all duration-300 h-20 shadow-sm md:shadow-none">
+        <header className="fixed top-0 right-0 left-0 md:left-64 z-40 bg-slate-50/95 backdrop-blur-sm border-b border-slate-200 px-4 py-4 md:px-8 flex items-center justify-between transition-all duration-300 h-20 shadow-sm md:shadow-none">
            <div className="flex items-center">
-            <button onClick={() => setMobileMenuOpen(true)} className="mr-4 md:hidden p-2 text-slate-600">
-              <Menu />
+            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="mr-4 md:hidden p-2 text-slate-600 transition-colors">
+               {mobileMenuOpen ? <Menu size={24} className="opacity-0 w-0" /> : <Menu size={24} />}
+               <span className="sr-only">Menu</span>
             </button>
             <div>
               <h1 className="text-xl md:text-3xl font-bold text-slate-900 truncate max-w-[200px] md:max-w-none">
@@ -699,6 +813,7 @@ export default function App() {
                 {activeTab === 'schedule' && 'Escalas de Trabalho'}
                 {activeTab === 'team' && 'Equipe e Acessos'}
                 {activeTab === 'settings' && 'Preferências'}
+                {activeTab === 'break_monitor' && 'Monitoramento de Intervalos'}
               </h1>
               {user.branchId && (
                   <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 hidden md:inline-block">
@@ -716,7 +831,7 @@ export default function App() {
                     className="text-slate-400 hover:text-slate-600 transition-colors relative p-2 rounded-full hover:bg-slate-100 outline-none"
                 >
                     <Bell size={22} />
-                    {notifications.length > 0 && (
+                    {visibleNotifications.length > 0 && (
                     <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
                     )}
                 </button>
@@ -725,17 +840,17 @@ export default function App() {
                   <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-50 animate-fade-in-up">
                      <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                         <h4 className="text-sm font-bold text-slate-800">Notificações</h4>
-                        {notifications.length > 0 && (
+                        {visibleNotifications.length > 0 && (
                           <button onClick={handleClearNotifications} className="text-xs text-blue-600 hover:text-blue-800 font-medium">
                             Limpar tudo
                           </button>
                         )}
                      </div>
                      <div className="max-h-[300px] overflow-y-auto">
-                        {notifications.length === 0 ? (
+                        {visibleNotifications.length === 0 ? (
                           <div className="p-8 text-center text-slate-400 text-xs">Nenhuma nova notificação</div>
                         ) : (
-                          notifications.map(notif => (
+                          visibleNotifications.map(notif => (
                             <div key={notif.id} className="p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors">
                                <div className="flex items-start space-x-3">
                                   <div className={`mt-0.5 p-1.5 rounded-full ${notif.title.includes('Email') ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'}`}>
@@ -761,7 +876,7 @@ export default function App() {
                  )}
               </div>
               
-              {user.role === 'admin' && activeTab !== 'team' && activeTab !== 'settings' && activeTab !== 'schedule' && activeTab !== 'board' && (
+              {user.role === 'admin' && activeTab !== 'team' && activeTab !== 'settings' && activeTab !== 'schedule' && activeTab !== 'board' && activeTab !== 'break_monitor' && (
                 <button 
                     onClick={() => setIsUploadModalOpen(true)}
                     className={`hidden md:flex bg-${currentTheme}-600 hover:bg-${currentTheme}-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-lg shadow-${currentTheme}-600/20 items-center`}
@@ -780,6 +895,15 @@ export default function App() {
                   branches={branches} 
                   onAddBranch={handleAddBranch} 
                   onDeleteBranch={handleDeleteBranch} 
+              />
+          )}
+          
+          {activeTab === 'break_monitor' && (user.role === 'admin' || user.role === 'super_admin') && (
+              <BreakMonitor 
+                activeBreaks={visibleBreaks} 
+                themeColor={currentTheme} 
+                breakHistory={visibleBreakHistory} // Pass history
+                onNotifyLate={handleNotifyLate} // Pass notification handler
               />
           )}
 
@@ -801,7 +925,7 @@ export default function App() {
               onDeleteRequest={handleDeleteRequest}
               onTogglePublish={handleTogglePublishMonth}
               onToggleUserWeeklySchedule={handleToggleUserWeeklySchedule}
-              onAssignVacation={handleAssign30DayVacation} // NEW PROP
+              onAssignVacation={handleAssign30DayVacation} 
               isSundayOffEnabled={isSundayOffEnabled}
               isWeeklyScheduleEnabled={isWeeklyScheduleEnabled}
             />
@@ -818,7 +942,13 @@ export default function App() {
           )}
 
           {activeTab === 'board' && (
-            <Board themeColor={currentTheme} />
+            <Board 
+                themeColor={currentTheme} 
+                activeBreak={activeBreaks.find(b => b.userId === user.id)}
+                onStartBreak={handleStartBreak}
+                onEndBreak={handleEndBreak}
+                onNotify={(msg, type) => triggerNotification(msg, type)}
+            />
           )}
           
           {activeTab === 'team' && (user.role === 'admin' || user.role === 'super_admin') && (
@@ -852,7 +982,7 @@ export default function App() {
         </div>
       </main>
 
-      {user.role === 'admin' && activeTab !== 'team' && activeTab !== 'settings' && activeTab !== 'schedule' && activeTab !== 'board' && (
+      {user.role === 'admin' && activeTab !== 'team' && activeTab !== 'settings' && activeTab !== 'schedule' && activeTab !== 'board' && activeTab !== 'break_monitor' && (
         <>
           <UploadModal 
             isOpen={isUploadModalOpen} 

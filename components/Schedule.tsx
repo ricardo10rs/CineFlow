@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { WorkShift, ThemeColor, UserRole, OffRequest, User, DailySchedule } from '../types';
-import { Clock, Pencil, X, Save, CalendarPlus, CheckCircle, XCircle, CalendarDays, ChevronLeft, ChevronRight, User as UserIcon, Trash2, Check, Eye, EyeOff, Lock, Palmtree, Clock as ClockOff, Sun, MousePointerClick } from 'lucide-react';
+import { Clock, Pencil, X, Save, CalendarPlus, CheckCircle, XCircle, CalendarDays, ChevronLeft, ChevronRight, User as UserIcon, Trash2, Check, Eye, EyeOff, Lock, Palmtree, Clock as ClockOff, Sun, MousePointerClick, MoveHorizontal } from 'lucide-react';
 
 interface ScheduleProps {
   shifts: WorkShift[];
@@ -469,7 +469,7 @@ export const Schedule: React.FC<ScheduleProps> = ({
                 )}
             </div>
         ) : (
-            <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-3 md:gap-4">
                 {shifts.map((shift) => {
                     const isOff = shift.type === 'Off';
                     const today = new Date();
@@ -595,115 +595,122 @@ export const Schedule: React.FC<ScheduleProps> = ({
                  </div>
              ) : (
                  <>
-                    <div className="overflow-x-auto pb-4">
-                        <div className="grid grid-cols-7 gap-2 min-w-[1000px]">
-                            {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day => (
-                                <div key={day} className="text-center text-[10px] font-bold text-slate-400 uppercase py-2">
-                                    {day}
-                                </div>
-                            ))}
-
-                            {Array.from({ length: firstDay }).map((_, i) => (
-                                <div key={`empty-${i}`} className="h-28 rounded-2xl bg-slate-50/50" />
-                            ))}
-
-                            {Array.from({ length: days }).map((_, i) => {
-                                const day = i + 1;
-                                const currentDayDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-                                const isToday = new Date().toDateString() === currentDayDate.toDateString();
-                                const weekDayName = currentDayDate.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
-                                
-                                const dayFormatted = String(day).padStart(2, '0');
-                                const monthFormatted = String(currentMonth.getMonth() + 1).padStart(2, '0');
-                                const requestDateStr = `${dayFormatted}/${monthFormatted}`;
-
-                                const status = getDailyStatus(day);
-
-                                const pendingRequest = requests.find(r => 
-                                    r.userId === selectedUserId && 
-                                    r.date === requestDateStr && 
-                                    r.status === 'pending'
-                                );
-                                
-                                let bgClass = 'bg-slate-50 border-slate-100'; 
-                                let textClass = 'text-slate-400';
-                                let statusLabel = '';
-                                let isPending = false;
-
-                                if (status) {
-                                    if (status.type === 'Work') {
-                                        bgClass = `bg-${themeColor}-600 shadow-md shadow-${themeColor}-200 border-${themeColor}-500`;
-                                        textClass = `text-white`;
-                                        statusLabel = 'Trabalho';
-                                    } else if (status.type === 'SundayOff') {
-                                        bgClass = 'bg-purple-600 shadow-md shadow-purple-200 border-purple-500';
-                                        textClass = 'text-white';
-                                        statusLabel = 'Folga Dom.';
-                                    } else if (status.type === 'Off') {
-                                        bgClass = 'bg-emerald-600 shadow-md shadow-emerald-200 border-emerald-500';
-                                        textClass = 'text-white';
-                                        statusLabel = 'Folga';
-                                    } else if (status.type === 'Vacation') {
-                                        bgClass = 'bg-orange-500 shadow-md shadow-orange-200 border-orange-400';
-                                        textClass = 'text-white';
-                                        statusLabel = 'Férias';
-                                    }
-                                }
-
-                                if (userRole === 'admin' && pendingRequest && (!status || ('isDefault' in status))) {
-                                    bgClass = 'bg-amber-400 shadow-md shadow-amber-200 border-amber-400';
-                                    textClass = 'text-white';
-                                    statusLabel = 'Solicitação';
-                                    isPending = true;
-                                }
-
-                                return (
-                                    <div 
-                                        key={day} 
-                                        onClick={() => !isPending && handleDayClick(day)}
-                                        className={`
-                                            h-28 p-2 flex flex-col justify-between transition-all relative rounded-2xl border cursor-default select-none
-                                            ${bgClass}
-                                            ${(userRole === 'admin' && !isPending) ? (isVacationMode ? 'cursor-pointer ring-2 ring-orange-400 scale-95 opacity-90' : 'cursor-pointer active:scale-95 hover:opacity-90') : ''}
-                                            ${isToday ? `ring-2 ring-offset-2 ring-offset-white ring-yellow-500 z-10` : ''}
-                                        `}
-                                    >
-                                        <div className="flex justify-between items-start">
-                                            <span className={`text-[10px] font-bold ${textClass} opacity-70 uppercase truncate`}>{weekDayName}</span>
-                                            <span className={`text-xs md:text-sm font-bold ${textClass}`}>{day}</span>
-                                        </div>
-                                        
-                                        <div className="mt-1 text-right flex justify-end items-end h-full overflow-hidden">
-                                            {isPending ? (
-                                                <div className="flex gap-1 bg-white/20 p-1 rounded-lg backdrop-blur-sm">
-                                                    <button 
-                                                        onClick={(e) => { e.stopPropagation(); onResolveRequest(pendingRequest!.id, 'approved'); }}
-                                                        className="bg-green-500 text-white p-1 rounded hover:bg-green-600 transition-colors"
-                                                        title="Aprovar"
-                                                    >
-                                                        <Check size={12} strokeWidth={3} />
-                                                    </button>
-                                                    <button 
-                                                        onClick={(e) => { e.stopPropagation(); onResolveRequest(pendingRequest!.id, 'rejected'); }}
-                                                        className="bg-red-500 text-white p-1 rounded hover:bg-red-600 transition-colors"
-                                                        title="Negar"
-                                                    >
-                                                        <X size={12} strokeWidth={3} />
-                                                    </button>
-                                                </div>
-                                            ) : (
-                                                statusLabel && (
-                                                    <span className={`text-[10px] font-bold ${textClass} uppercase tracking-tight opacity-90 whitespace-nowrap w-full block truncate shrink-0`}>
-                                                        {statusLabel}
-                                                    </span>
-                                                )
-                                            )}
-                                        </div>
+                    <div className="relative">
+                        <div className="overflow-x-auto pb-4 -mx-4 px-4 md:mx-0 md:px-0">
+                            <div className="grid grid-cols-7 gap-2 min-w-[800px] md:min-w-full">
+                                {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day => (
+                                    <div key={day} className="text-center text-[10px] font-bold text-slate-400 uppercase py-2">
+                                        {day}
                                     </div>
-                                );
-                            })}
+                                ))}
+
+                                {Array.from({ length: firstDay }).map((_, i) => (
+                                    <div key={`empty-${i}`} className="h-24 md:h-28 rounded-2xl bg-slate-50/50" />
+                                ))}
+
+                                {Array.from({ length: days }).map((_, i) => {
+                                    const day = i + 1;
+                                    const currentDayDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+                                    const isToday = new Date().toDateString() === currentDayDate.toDateString();
+                                    const weekDayName = currentDayDate.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
+                                    
+                                    const dayFormatted = String(day).padStart(2, '0');
+                                    const monthFormatted = String(currentMonth.getMonth() + 1).padStart(2, '0');
+                                    const requestDateStr = `${dayFormatted}/${monthFormatted}`;
+
+                                    const status = getDailyStatus(day);
+
+                                    const pendingRequest = requests.find(r => 
+                                        r.userId === selectedUserId && 
+                                        r.date === requestDateStr && 
+                                        r.status === 'pending'
+                                    );
+                                    
+                                    let bgClass = 'bg-slate-50 border-slate-100'; 
+                                    let textClass = 'text-slate-400';
+                                    let statusLabel = '';
+                                    let isPending = false;
+
+                                    if (status) {
+                                        if (status.type === 'Work') {
+                                            bgClass = `bg-${themeColor}-600 shadow-md shadow-${themeColor}-200 border-${themeColor}-500`;
+                                            textClass = `text-white`;
+                                            statusLabel = 'Trabalho';
+                                        } else if (status.type === 'SundayOff') {
+                                            bgClass = 'bg-purple-600 shadow-md shadow-purple-200 border-purple-500';
+                                            textClass = 'text-white';
+                                            statusLabel = 'Folga Dom.';
+                                        } else if (status.type === 'Off') {
+                                            bgClass = 'bg-emerald-600 shadow-md shadow-emerald-200 border-emerald-500';
+                                            textClass = 'text-white';
+                                            statusLabel = 'Folga';
+                                        } else if (status.type === 'Vacation') {
+                                            bgClass = 'bg-orange-500 shadow-md shadow-orange-200 border-orange-400';
+                                            textClass = 'text-white';
+                                            statusLabel = 'Férias';
+                                        }
+                                    }
+
+                                    if (userRole === 'admin' && pendingRequest && (!status || ('isDefault' in status))) {
+                                        bgClass = 'bg-amber-400 shadow-md shadow-amber-200 border-amber-400';
+                                        textClass = 'text-white';
+                                        statusLabel = 'Solicitação';
+                                        isPending = true;
+                                    }
+
+                                    return (
+                                        <div 
+                                            key={day} 
+                                            onClick={() => !isPending && handleDayClick(day)}
+                                            className={`
+                                                h-24 md:h-28 p-2 flex flex-col justify-between transition-all relative rounded-2xl border cursor-default select-none
+                                                ${bgClass}
+                                                ${(userRole === 'admin' && !isPending) ? (isVacationMode ? 'cursor-pointer ring-2 ring-orange-400 scale-95 opacity-90' : 'cursor-pointer active:scale-95 hover:opacity-90') : ''}
+                                                ${isToday ? `ring-2 ring-offset-2 ring-offset-white ring-yellow-500 z-10` : ''}
+                                            `}
+                                        >
+                                            <div className="flex justify-between items-start">
+                                                <span className={`text-[10px] font-bold ${textClass} opacity-70 uppercase truncate`}>{weekDayName}</span>
+                                                <span className={`text-xs md:text-sm font-bold ${textClass}`}>{day}</span>
+                                            </div>
+                                            
+                                            <div className="mt-1 text-right flex justify-end items-end h-full overflow-hidden">
+                                                {isPending ? (
+                                                    <div className="flex gap-1 bg-white/20 p-1 rounded-lg backdrop-blur-sm">
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); onResolveRequest(pendingRequest!.id, 'approved'); }}
+                                                            className="bg-green-500 text-white p-1 rounded hover:bg-green-600 transition-colors"
+                                                            title="Aprovar"
+                                                        >
+                                                            <Check size={12} strokeWidth={3} />
+                                                        </button>
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); onResolveRequest(pendingRequest!.id, 'rejected'); }}
+                                                            className="bg-red-500 text-white p-1 rounded hover:bg-red-600 transition-colors"
+                                                            title="Negar"
+                                                        >
+                                                            <X size={12} strokeWidth={3} />
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    statusLabel && (
+                                                        <span className={`text-[10px] font-bold ${textClass} uppercase tracking-tight opacity-90 whitespace-nowrap w-full block truncate shrink-0`}>
+                                                            {statusLabel}
+                                                        </span>
+                                                    )
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                        <div className="md:hidden flex items-center justify-center text-xs text-slate-400 mt-2 bg-slate-50 py-1.5 rounded-lg border border-slate-100">
+                             <MoveHorizontal size={14} className="mr-2" />
+                             Arraste para ver o calendário completo
                         </div>
                     </div>
+
                     <div className="mt-6 flex gap-4 text-xs text-slate-500 justify-center sm:justify-start flex-wrap">
                         <div className="flex items-center"><div className={`w-3 h-3 bg-${themeColor}-600 rounded-full mr-2`}></div> Trabalho</div>
                         <div className="flex items-center"><div className="w-3 h-3 bg-purple-600 rounded-full mr-2"></div> Folga Domingo</div>

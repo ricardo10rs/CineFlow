@@ -1,20 +1,30 @@
-import React, { useState, useEffect } from 'react';
-import { ThemeColor } from '../types';
-import { Play, Pause, RotateCcw, Clock, Layout, ArrowRight } from 'lucide-react';
+
+import React, { useState, useEffect, useRef } from 'react';
+import { ThemeColor, BreakSession } from '../types';
+import { Play, RotateCcw, Clock, Utensils, Coffee, Sun, ChevronRight, Watch } from 'lucide-react';
 
 interface BoardProps {
   themeColor: ThemeColor;
+  activeBreak: BreakSession | undefined;
+  onStartBreak: (startTime: number) => void;
+  onEndBreak: () => void;
+  onNotify: (msg: string, type: 'sms' | 'email') => void;
 }
 
-export const Board: React.FC<BoardProps> = ({ themeColor }) => {
+export const Board: React.FC<BoardProps> = ({ themeColor, activeBreak, onStartBreak, onEndBreak, onNotify }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   
+  // Constants
+  const ONE_HOUR_SECONDS = 60 * 60;
+
   // Timer States
-  const [totalTime, setTotalTime] = useState(15 * 60); // Default 15 min in seconds
-  const [timeLeft, setTimeLeft] = useState(15 * 60);
-  const [isActive, setIsActive] = useState(false);
-  const [selectedDuration, setSelectedDuration] = useState(15); // in minutes
+  const [timeLeft, setTimeLeft] = useState(ONE_HOUR_SECONDS); 
   const [manualStartTime, setManualStartTime] = useState('');
+
+  // Determine if active based on global props or local state logic
+  const isActive = !!activeBreak;
+
+  const hasWarnedOneMinute = useRef(false);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -23,37 +33,47 @@ export const Board: React.FC<BoardProps> = ({ themeColor }) => {
     return () => clearInterval(timer);
   }, []);
 
+  // Sync with global active break
+  useEffect(() => {
+      if (activeBreak) {
+          // Calculate time left based on the GLOBAL start time
+          const now = Date.now();
+          const elapsedSeconds = Math.floor((now - activeBreak.startTime) / 1000);
+          const remaining = ONE_HOUR_SECONDS - elapsedSeconds;
+          setTimeLeft(remaining > 0 ? remaining : 0);
+      } else {
+          // Reset if no active break
+          setTimeLeft(ONE_HOUR_SECONDS);
+          hasWarnedOneMinute.current = false;
+      }
+  }, [activeBreak]);
+
   useEffect(() => {
     let interval: number | undefined;
 
-    if (isActive && timeLeft > 0) {
+    if (isActive && timeLeft > -9999) { 
       interval = window.setInterval(() => {
         setTimeLeft((prevTime) => prevTime - 1);
       }, 1000);
-    } else if (timeLeft === 0) {
-      setIsActive(false);
-      // Optional: Play sound or notification
-    }
+    } 
 
     return () => clearInterval(interval);
-  }, [isActive, timeLeft]);
+  }, [isActive]);
 
-  const handleDurationChange = (minutes: number) => {
-    setIsActive(false);
-    setSelectedDuration(minutes);
-    setTotalTime(minutes * 60);
-    setTimeLeft(minutes * 60);
-    setManualStartTime(''); // Reset manual input
-  };
+  // 1-Minute Warning Logic
+  useEffect(() => {
+    if (isActive && timeLeft <= 60 && timeLeft > 0 && !hasWarnedOneMinute.current) {
+        onNotify('Falta 1 minuto para o retorno do intervalo.', 'sms');
+        hasWarnedOneMinute.current = true;
+    }
+  }, [timeLeft, isActive, onNotify]);
 
-  const toggleTimer = () => {
-    setIsActive(!isActive);
-  };
 
-  const resetTimer = () => {
-    setIsActive(false);
-    setTimeLeft(totalTime);
-    setManualStartTime('');
+  const handleStartNow = () => {
+      const now = Date.now();
+      const timeString = new Date(now).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      setManualStartTime(timeString);
+      onStartBreak(now); // Notify Parent/Global State
   };
 
   const handleManualStartSubmit = () => {
@@ -64,38 +84,23 @@ export const Board: React.FC<BoardProps> = ({ themeColor }) => {
     const startTime = new Date();
     startTime.setHours(hours, mins, 0, 0);
 
-    // Calculate difference in seconds between Now and Start Time
-    // If start time is > now (future), we assume user meant previous day? No, usually prevent future time.
-    let diffSeconds = Math.floor((now.getTime() - startTime.getTime()) / 1000);
-
-    if (diffSeconds < 0) {
+    const startTimestamp = startTime.getTime();
+    
+    // Check if future
+    if (startTimestamp > now.getTime()) {
         alert("O horário de início não pode ser no futuro.");
         return;
     }
 
-    const newTimeLeft = totalTime - diffSeconds;
-
-    if (newTimeLeft <= 0) {
-        setTimeLeft(0);
-        setIsActive(false);
-        alert("Com base no horário inserido, seu intervalo já acabou.");
-    } else {
-        setTimeLeft(newTimeLeft);
-        setIsActive(true);
-    }
+    onStartBreak(startTimestamp); // Sync Global
   };
 
   const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    const absSeconds = Math.abs(seconds);
+    const mins = Math.floor(absSeconds / 60);
+    const secs = absSeconds % 60;
+    return `${seconds < 0 ? '-' : ''}${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
-
-  // Circular Progress Calculation
-  const radius = 80;
-  const circumference = 2 * Math.PI * radius;
-  const progress = totalTime > 0 ? ((totalTime - timeLeft) / totalTime) * 100 : 0;
-  const strokeDashoffset = circumference - (progress / 100) * circumference;
 
   const getDayName = (date: Date) => {
     return date.toLocaleDateString('pt-BR', { weekday: 'long' });
@@ -105,145 +110,246 @@ export const Board: React.FC<BoardProps> = ({ themeColor }) => {
       return date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
   };
 
+  // --- KNOB STYLE CALCULATIONS ---
+  const size = 280;
+  const center = size / 2;
+  const strokeWidth = 16;
+  const radius = (size / 2) - strokeWidth - 20; // Allow space for ticks
+  const circumference = 2 * Math.PI * radius;
+
+  // Calculate percentage (100% = 1 hour left, 0% = 0 time left)
+  // If timeLeft < 0 (overdue), we keep it at 0 visual progress or could make it loop
+  const percentage = isActive 
+      ? Math.max(0, Math.min(100, (timeLeft / ONE_HOUR_SECONDS) * 100)) 
+      : 100;
+
+  const strokeDashoffset = circumference - (percentage / 100) * circumference;
+  
+  // Calculate Knob Position (Trigonometry)
+  // SVG rotates -90deg, so 0 is top.
+  const angle = (percentage / 100) * 360;
+  const angleInRadians = (angle - 90) * (Math.PI / 180);
+  const knobX = center + radius * Math.cos(angleInRadians);
+  const knobY = center + radius * Math.sin(angleInRadians);
+
+  // Map themeColor to Hex for Gradient
+  const getColorHex = (theme: ThemeColor) => {
+      const colors: Record<ThemeColor, { start: string, end: string }> = {
+          blue: { start: '#2563eb', end: '#60a5fa' },
+          green: { start: '#059669', end: '#34d399' },
+          purple: { start: '#7c3aed', end: '#a78bfa' },
+          pink: { start: '#db2777', end: '#f472b6' },
+          orange: { start: '#ea580c', end: '#fb923c' },
+          slate: { start: '#1e293b', end: '#475569' },
+      };
+      return colors[theme] || colors.blue;
+  };
+  const gradientColors = getColorHex(themeColor);
+
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-8 animate-fade-in max-w-5xl mx-auto">
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-slate-100 pb-6">
         <div>
-           <h2 className="text-3xl font-bold text-slate-800 capitalize">{getDayName(currentDate)}</h2>
-           <p className="text-lg text-slate-500">{getFullDate(currentDate)}</p>
+           <h2 className="text-3xl font-light text-slate-800 capitalize tracking-tight">{getDayName(currentDate)}</h2>
+           <p className="text-sm text-slate-400 font-medium mt-1">{getFullDate(currentDate)}</p>
         </div>
-        <div className={`px-4 py-2 bg-${themeColor}-50 text-${themeColor}-700 rounded-xl font-mono text-xl font-bold border border-${themeColor}-100`}>
+        <div className="font-mono text-xl font-medium text-slate-600 flex items-center bg-slate-50 px-4 py-2 rounded-lg">
+            <Clock size={18} className="mr-3 text-slate-400" />
             {currentDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Interval Timer Card */}
-          <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 flex flex-col items-center relative overflow-hidden">
-             <div className="absolute top-0 left-0 w-full h-2 bg-slate-100">
-                <div 
-                    className={`h-full bg-${themeColor}-500 transition-all duration-1000`} 
-                    style={{ width: `${progress}%` }}
-                ></div>
-             </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+          
+          {/* LEFT: Timer Card - Knob Style */}
+          <div className="flex flex-col items-center justify-center relative bg-white rounded-3xl p-8 shadow-xl shadow-slate-100 border border-slate-100">
+             
+             <div 
+                className={`relative mb-8 transition-transform duration-200 ${!isActive ? 'cursor-pointer hover:scale-[1.02] active:scale-95 group' : ''}`}
+                onClick={!isActive ? handleStartNow : undefined}
+                title={!isActive ? "Toque para iniciar o intervalo agora" : ""}
+             >
+                 <svg width={size} height={size} className="relative z-10">
+                     <defs>
+                        <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stopColor={timeLeft < 0 ? '#ef4444' : gradientColors.start} />
+                            <stop offset="100%" stopColor={timeLeft < 0 ? '#f87171' : gradientColors.end} />
+                        </linearGradient>
+                        <filter id="knobShadow" x="-50%" y="-50%" width="200%" height="200%">
+                            <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#000" floodOpacity="0.3" />
+                        </filter>
+                     </defs>
 
-             <div className="w-full flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-slate-800 flex items-center">
-                    <Clock className={`mr-2 text-${themeColor}-600`} />
-                    Meu Intervalo
-                </h3>
-                <div className="flex space-x-2">
-                    {[15, 30, 60].map((min) => (
-                        <button
-                            key={min}
-                            onClick={() => handleDurationChange(min)}
-                            className={`px-3 py-1 text-xs font-bold rounded-lg transition-colors border ${
-                                selectedDuration === min 
-                                ? `bg-${themeColor}-600 text-white border-${themeColor}-600` 
-                                : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
-                            }`}
-                        >
-                            {min}m
-                        </button>
-                    ))}
-                </div>
-             </div>
+                     {/* Tick Marks Ring */}
+                     {Array.from({ length: 60 }).map((_, i) => {
+                         const tickAngle = (i * 6) * (Math.PI / 180);
+                         const isHour = i % 5 === 0;
+                         const tickLen = isHour ? 12 : 6;
+                         const innerR = (size / 2) - 10;
+                         const outerR = innerR + tickLen;
+                         
+                         const x1 = center + innerR * Math.cos(tickAngle);
+                         const y1 = center + innerR * Math.sin(tickAngle);
+                         const x2 = center + outerR * Math.cos(tickAngle);
+                         const y2 = center + outerR * Math.sin(tickAngle);
 
-             {/* Manual Start Time Input */}
-             {!isActive && timeLeft === totalTime && (
-                 <div className="w-full mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col sm:flex-row items-center gap-3">
-                    <div className="flex-1 w-full">
-                        <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Já saiu? Insira o horário:</label>
-                        <input 
-                            type="time" 
-                            value={manualStartTime}
-                            onChange={(e) => setManualStartTime(e.target.value)}
-                            className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                    </div>
-                    <button 
-                        onClick={handleManualStartSubmit}
-                        disabled={!manualStartTime}
-                        className={`w-full sm:w-auto px-4 py-2 bg-${themeColor}-100 text-${themeColor}-700 rounded-lg text-xs font-bold hover:bg-${themeColor}-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center mt-auto h-[38px]`}
-                    >
-                        Ajustar <ArrowRight size={14} className="ml-1" />
-                    </button>
-                 </div>
-             )}
+                         return (
+                             <line 
+                                key={i}
+                                x1={x1} y1={y1} x2={x2} y2={y2}
+                                stroke={isActive && i <= (percentage / 100) * 60 ? '#cbd5e1' : '#f1f5f9'}
+                                strokeWidth={isHour ? 2 : 1}
+                             />
+                         );
+                     })}
 
-             {/* Circular Progress */}
-             <div className="relative mb-8">
-                 <svg width="220" height="220" className="transform -rotate-90">
+                     {/* Track Background */}
                      <circle
-                        cx="110"
-                        cy="110"
+                        cx={center}
+                        cy={center}
                         r={radius}
-                        stroke="#f1f5f9" // slate-100
-                        strokeWidth="12"
-                        fill="transparent"
+                        stroke="#f1f5f9"
+                        strokeWidth={strokeWidth}
+                        fill="none"
+                        strokeLinecap="round"
                      />
+
+                     {/* Progress Arc */}
                      <circle
-                        cx="110"
-                        cy="110"
+                        cx={center}
+                        cy={center}
                         r={radius}
-                        stroke={`var(--color-${themeColor}-500)`} 
-                        strokeWidth="12"
-                        fill="transparent"
+                        stroke="url(#gradient)"
+                        strokeWidth={strokeWidth}
+                        fill="none"
                         strokeDasharray={circumference}
                         strokeDashoffset={strokeDashoffset}
                         strokeLinecap="round"
-                        className={`text-${themeColor}-500 transition-all duration-1000 ease-linear`}
-                        style={{ stroke: 'currentColor' }} 
+                        transform={`rotate(-90 ${center} ${center})`}
+                        className="transition-all duration-1000 ease-linear"
                      />
+
+                     {/* Knob Indicator */}
+                     {isActive && timeLeft >= 0 && (
+                         <circle 
+                            cx={knobX}
+                            cy={knobY}
+                            r={10}
+                            fill="white"
+                            filter="url(#knobShadow)"
+                            className="transition-all duration-1000 ease-linear"
+                         />
+                     )}
                  </svg>
-                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                     <span className="text-5xl font-bold text-slate-800 font-mono tracking-tighter">
+                 
+                 {/* Center Text */}
+                 <div className="absolute inset-0 flex flex-col items-center justify-center rounded-full m-[50px] bg-white shadow-inner pointer-events-none">
+                     <span className={`text-4xl font-bold font-mono tracking-tighter tabular-nums ${timeLeft < 0 ? 'text-red-500' : 'text-slate-800'}`}>
                          {formatTime(timeLeft)}
                      </span>
-                     <span className="text-xs font-bold uppercase text-slate-400 mt-2 tracking-widest">
-                         Restante
+                     <span className={`text-[10px] uppercase mt-1 tracking-widest font-bold ${isActive ? (timeLeft < 0 ? 'text-red-400' : `text-${themeColor}-500`) : 'text-slate-300 group-hover:text-blue-500 transition-colors'}`}>
+                         {isActive ? (timeLeft < 0 ? 'ATRASO' : 'RESTANTE') : 'INICIAR'}
                      </span>
                  </div>
              </div>
 
-             {/* Controls */}
-             <div className="flex items-center gap-6">
-                 <button 
-                    onClick={resetTimer}
-                    className="p-4 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition-colors"
-                    title="Reiniciar"
-                 >
-                     <RotateCcw size={24} />
-                 </button>
-                 
-                 <button 
-                    onClick={toggleTimer}
-                    className={`p-6 rounded-full text-white shadow-xl shadow-${themeColor}-500/30 hover:scale-105 transition-all active:scale-95 bg-${themeColor}-600`}
-                 >
-                     {isActive ? <Pause size={32} fill="currentColor" /> : <Play size={32} fill="currentColor" className="ml-1" />}
-                 </button>
+             {/* Controls Area */}
+             <div className="w-full max-w-xs space-y-4">
+                 {!isActive ? (
+                     <>
+                         <div className="flex flex-col gap-2">
+                             <div className="relative">
+                                <label className="absolute -top-2 left-3 bg-white px-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                    Horário de Saída
+                                </label>
+                                <div className="flex gap-2">
+                                    <input 
+                                        type="time" 
+                                        value={manualStartTime}
+                                        onChange={(e) => setManualStartTime(e.target.value)}
+                                        className="flex-1 bg-white border border-slate-200 rounded-lg py-3 px-4 text-center text-lg text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                                    />
+                                    <button 
+                                        onClick={handleStartNow}
+                                        className={`px-4 text-xs font-bold text-${themeColor}-600 bg-${themeColor}-50 hover:bg-${themeColor}-100 border border-${themeColor}-100 transition-colors rounded-lg whitespace-nowrap`}
+                                    >
+                                        AGORA
+                                    </button>
+                                </div>
+                             </div>
+                         </div>
+                         <button 
+                            onClick={handleManualStartSubmit}
+                            disabled={!manualStartTime}
+                            className={`w-full py-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-lg ${manualStartTime ? `bg-slate-800 hover:bg-slate-900 text-white shadow-slate-300` : 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none'}`}
+                         >
+                            <Play size={18} fill="currentColor" />
+                            INICIAR INTERVALO
+                         </button>
+                     </>
+                 ) : (
+                     <button 
+                        onClick={onEndBreak}
+                        className="w-full bg-white border-2 border-slate-100 hover:border-green-500 hover:text-green-600 text-slate-500 py-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 group shadow-sm hover:shadow-md"
+                     >
+                         <RotateCcw size={18} className="group-hover:-rotate-90 transition-transform duration-300" />
+                         <span>ENCERRAR INTERVALO</span>
+                     </button>
+                 )}
              </div>
-             
-             <p className="mt-8 text-slate-400 text-sm font-medium">
-                 {isActive ? 'Cronômetro em andamento...' : 'Selecione a duração ou insira o horário de início.'}
-             </p>
           </div>
 
-          {/* Quick Notes / Info Placeholder */}
-          <div className={`bg-gradient-to-br from-${themeColor}-50 to-white rounded-3xl p-8 border border-${themeColor}-100 flex flex-col justify-center items-start`}>
-               <div className={`bg-white p-3 rounded-xl shadow-sm border border-${themeColor}-100 mb-4`}>
-                   <Layout className={`text-${themeColor}-600`} size={24} />
-               </div>
-               <h3 className={`text-2xl font-bold text-${themeColor}-900 mb-2`}>
-                   Painel do Funcionário
-               </h3>
-               <p className="text-slate-600 mb-6 leading-relaxed">
-                   Use este quadro para acompanhar o dia a dia e gerenciar seus intervalos de descanso com precisão. Mantenha o foco e aproveite suas pausas!
-               </p>
-               <div className="w-full bg-white/60 rounded-xl p-4 border border-white/50 backdrop-blur-sm">
-                   <p className="text-xs font-bold text-slate-400 uppercase mb-2">Dica do dia</p>
-                   <p className="text-sm text-slate-700 italic">"Organização é a chave para um dia produtivo e sem estresse."</p>
+          {/* RIGHT: Status Card */}
+          <div className="flex flex-col h-full justify-center">
+               <div className={`p-8 rounded-3xl border border-slate-100 ${isActive ? 'bg-gradient-to-br from-white to-slate-50' : 'bg-white'}`}>
+                   <div className="flex items-center gap-4 mb-6">
+                       <div className={`p-4 rounded-2xl shadow-sm ${isActive ? 'bg-white' : 'bg-slate-50'}`}>
+                           {isActive ? <Utensils size={28} className={`text-${themeColor}-500`} /> : <Coffee size={28} className="text-slate-400" />}
+                       </div>
+                       <div>
+                            <h3 className="text-xl font-bold text-slate-800">
+                                {isActive ? 'Intervalo em Andamento' : 'Hora da Pausa?'}
+                            </h3>
+                            <p className="text-xs text-slate-400 font-medium uppercase tracking-wide">Status do dia</p>
+                       </div>
+                   </div>
+                   
+                   <p className="text-sm text-slate-500 leading-relaxed font-medium mb-8">
+                       {isActive 
+                         ? "Aproveite este momento para relaxar e recarregar. Um bom intervalo faz toda a diferença."
+                         : "O descanso é parte fundamental do trabalho. Pausas regulares são essenciais para manter o foco, a criatividade e a saúde mental."
+                       }
+                   </p>
+
+                   {!isActive && (
+                       <div className="border-t border-slate-100 pt-6">
+                           <div className="flex items-center gap-2 mb-2">
+                               <Sun size={16} className="text-amber-500" />
+                               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Dica de Bem-estar</span>
+                           </div>
+                           <p className="text-sm text-slate-600 italic">
+                               "Tente se alongar ou beber água antes de iniciar seu descanso."
+                           </p>
+                       </div>
+                   )}
+                   
+                   {isActive && (
+                        <div className="border-t border-slate-200 pt-6 flex items-center justify-between group cursor-default">
+                            <div className="flex items-center gap-3">
+                                <div className="bg-slate-100 p-2 rounded-lg">
+                                    <Watch size={20} className="text-slate-500" />
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase">Retorno Previsto</span>
+                                    <span className="font-mono text-lg font-bold text-slate-700">
+                                        {new Date(Date.now() + timeLeft * 1000).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}
+                                    </span>
+                                </div>
+                            </div>
+                            <ChevronRight size={20} className="text-slate-300" />
+                        </div>
+                   )}
                </div>
           </div>
       </div>
