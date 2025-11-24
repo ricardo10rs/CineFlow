@@ -232,6 +232,15 @@ export default function App() {
         const scheduleYesterday = dailySchedules.find(s => s.userId === user.id && s.date === yesterdayStr);
 
         if (scheduleYesterday?.type === 'Vacation' && scheduleToday?.type !== 'Vacation') {
+             // AUTO-ENABLE Weekly Schedule if it was hidden
+             if (user.hideWeeklySchedule) {
+                 setUsers(prev => prev.map(u => {
+                    if (u.id === user.id) return { ...u, hideWeeklySchedule: false };
+                    return u;
+                 }));
+                 setUser(prev => prev ? { ...prev, hideWeeklySchedule: false } : null);
+             }
+
              const hasNotified = notifications.some(n => n.title === 'Bem-vindo de volta' && n.timestamp > Date.now() - 60000);
              if (!hasNotified) {
                  triggerNotification('🎉 Bem-vindo de volta! Sua escala semanal está disponível novamente.', 'sms');
