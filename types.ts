@@ -110,18 +110,33 @@ export interface Notification {
   targetUserId?: string; // NEW: ID do usuário alvo para notificações privadas
 }
 
+export interface Reply {
+  id: string;
+  authorId: string;
+  authorName: string;
+  content: string;
+  date: string;
+  timestamp: number; // ADDED: To track latest activity order
+  isAdmin: boolean;
+}
+
 export interface DirectMessage {
   id: string;
   branchId: string;
-  userId: string;
+  userId: string; // Recipient ID
+  senderId?: string; // Sender ID (Admin)
+  senderName?: string;
   message: string;
   date: string;
+  timestamp: number; // Creation timestamp
+  expiresAt?: number; // NEW: Specific expiration timestamp set by timer
   read: boolean;
   attachment?: {
     name: string;
     url: string; // Base64
     type: 'PDF' | 'IMAGE';
   };
+  replies: Reply[];
 }
 
 export interface BreakSession {
@@ -139,4 +154,13 @@ export interface ChartData {
   name: string;
   uploads: number;
   views: number;
+}
+
+export interface HolidayEvent {
+  id: string;
+  date: string; // YYYY-MM-DD
+  name: string;
+  type: string;
+  color: 'green' | 'orange' | 'yellow' | 'blue' | 'purple' | 'red';
+  description?: string;
 }

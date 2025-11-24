@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { User, UserRole, JobTitle, Branch } from '../types';
-import { UserPlus, Trash2, User as UserIcon, Lock, Mail, Phone, Briefcase, Filter, ArrowUpDown, MessageSquare, X, Send, Plus, Pencil, Building, Paperclip, FileText, Image as ImageIcon, Settings, Check, Save, EyeOff } from 'lucide-react';
+import { UserPlus, Trash2, User as UserIcon, Lock, Mail, Phone, Briefcase, Filter, ArrowUpDown, MessageSquare, X, Send, Plus, Pencil, Building, Paperclip, FileText, Image as ImageIcon, Settings, Check, Save, EyeOff, Clock } from 'lucide-react';
 
 interface TeamManagementProps {
   users: User[];
@@ -14,7 +14,7 @@ interface TeamManagementProps {
   onAddJobTitle: (title: string) => void;
   onEditJobTitle: (oldTitle: string, newTitle: string) => void;
   onDeleteJobTitle: (title: string) => void;
-  onSendMessage?: (userId: string, message: string, file?: File) => void;
+  onSendMessage?: (userId: string, message: string, file?: File, durationMinutes?: number) => void;
 }
 
 export const TeamManagement: React.FC<TeamManagementProps> = ({ 
@@ -59,6 +59,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
   const [selectedUserForMessage, setSelectedUserForMessage] = useState<User | null>(null);
   const [messageText, setMessageText] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [duration, setDuration] = useState<string>('1440'); // Default 24 hours
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -155,6 +156,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
     setMessageModalOpen(true);
     setMessageText('');
     setSelectedFile(null);
+    setDuration('1440'); // Reset to default 24h
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -165,7 +167,8 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
 
   const handleSendMessage = () => {
     if (selectedUserForMessage && messageText && onSendMessage) {
-        onSendMessage(selectedUserForMessage.id, messageText, selectedFile || undefined);
+        const durationMinutes = parseInt(duration);
+        onSendMessage(selectedUserForMessage.id, messageText, selectedFile || undefined, durationMinutes);
         setMessageModalOpen(false);
         setMessageText('');
         setSelectedUserForMessage(null);
@@ -283,37 +286,61 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
                         />
                     </div>
 
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Anexo (Opcional)</label>
-                        <div className="flex items-center gap-2">
-                            <button
-                                type="button"
-                                onClick={() => fileInputRef.current?.click()}
-                                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-100 text-xs font-medium flex items-center transition-colors"
-                            >
-                                <Paperclip size={14} className="mr-2" />
-                                {selectedFile ? 'Alterar Arquivo' : 'Anexar PDF ou Imagem'}
-                            </button>
-                            <input 
-                                type="file"
-                                ref={fileInputRef}
-                                className="hidden"
-                                accept=".pdf,image/*"
-                                onChange={handleFileSelect}
-                            />
-                        </div>
-                        {selectedFile && (
-                            <div className="mt-2 flex items-center justify-between bg-blue-50 p-2 rounded-lg border border-blue-100">
-                                <div className="flex items-center overflow-hidden">
-                                    {selectedFile.type.includes('pdf') ? <FileText size={14} className="text-blue-600 mr-2 shrink-0" /> : <ImageIcon size={14} className="text-blue-600 mr-2 shrink-0" />}
-                                    <span className="text-xs text-blue-800 truncate">{selectedFile.name}</span>
-                                </div>
-                                <button onClick={() => setSelectedFile(null)} className="text-blue-400 hover:text-red-500 ml-2">
-                                    <X size={14} />
-                                </button>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Visibilidade da Aba</label>
+                            <div className="relative">
+                                <Clock size={16} className="absolute left-3 top-2.5 text-slate-400" />
+                                <select 
+                                    value={duration}
+                                    onChange={(e) => setDuration(e.target.value)}
+                                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 appearance-none"
+                                >
+                                    <option value="15">15 Minutos</option>
+                                    <option value="60">1 Hora</option>
+                                    <option value="360">6 Horas</option>
+                                    <option value="1440">24 Horas</option>
+                                    <option value="2880">48 Horas</option>
+                                </select>
                             </div>
-                        )}
+                        </div>
+
+                        <div>
+                             <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Anexo (Opcional)</label>
+                             <div className="flex items-center">
+                                <button
+                                    type="button"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-100 text-xs font-medium flex items-center justify-center transition-colors h-[38px]"
+                                >
+                                    <Paperclip size={14} className="mr-2" />
+                                    {selectedFile ? 'Alterar' : 'Anexar'}
+                                </button>
+                                <input 
+                                    type="file"
+                                    ref={fileInputRef}
+                                    className="hidden"
+                                    accept=".pdf,image/*"
+                                    onChange={handleFileSelect}
+                                />
+                             </div>
+                        </div>
                     </div>
+                    <p className="text-[10px] text-slate-400 italic">
+                       * A aba de mensagens aparecerá para o funcionário pelo tempo selecionado ou até que ele responda.
+                    </p>
+
+                    {selectedFile && (
+                        <div className="flex items-center justify-between bg-blue-50 p-2 rounded-lg border border-blue-100">
+                            <div className="flex items-center overflow-hidden">
+                                {selectedFile.type.includes('pdf') ? <FileText size={14} className="text-blue-600 mr-2 shrink-0" /> : <ImageIcon size={14} className="text-blue-600 mr-2 shrink-0" />}
+                                <span className="text-xs text-blue-800 truncate">{selectedFile.name}</span>
+                            </div>
+                            <button onClick={() => setSelectedFile(null)} className="text-blue-400 hover:text-red-500 ml-2">
+                                <X size={14} />
+                            </button>
+                        </div>
+                    )}
 
                     <button 
                         onClick={handleSendMessage}
@@ -594,7 +621,9 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
                                 </span>
                             )}
                              {u.hideWeeklySchedule && (
-                                <EyeOff size={14} className="text-orange-400" title="Escala Oculta" />
+                                <span title="Escala Oculta" className="flex">
+                                    <EyeOff size={14} className="text-orange-400" />
+                                </span>
                             )}
                         </div>
                         <div className="flex items-center space-x-2 flex-wrap">

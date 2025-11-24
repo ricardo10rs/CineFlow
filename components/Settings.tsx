@@ -12,6 +12,8 @@ interface SettingsProps {
   isWeeklyScheduleEnabled?: boolean;
   onToggleWeeklySchedule?: () => void;
   onUpdateAvatar?: (file: File) => void;
+  isMessagesTabEnabled?: boolean;
+  onToggleMessagesTab?: () => void;
 }
 
 export const Settings: React.FC<SettingsProps> = ({ 
@@ -22,7 +24,9 @@ export const Settings: React.FC<SettingsProps> = ({
   onToggleSundayOff,
   isWeeklyScheduleEnabled = true,
   onToggleWeeklySchedule,
-  onUpdateAvatar
+  onUpdateAvatar,
+  isMessagesTabEnabled = true,
+  onToggleMessagesTab
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -150,6 +154,31 @@ export const Settings: React.FC<SettingsProps> = ({
                     className={`transition-all duration-300 ${isWeeklyScheduleEnabled ? 'text-green-500' : 'text-slate-400'}`}
                   >
                     {isWeeklyScheduleEnabled ? (
+                      <ToggleRight size={40} fill="currentColor" className="opacity-100" />
+                    ) : (
+                      <ToggleLeft size={40} className="opacity-100" />
+                    )}
+                  </button>
+                </div>
+             )}
+
+             {onToggleMessagesTab && (
+                <div className="flex items-center justify-between bg-slate-50 p-4 rounded-xl border border-slate-200">
+                  <div className="flex items-center space-x-4">
+                      <div className="bg-white p-2 rounded-lg text-slate-400 shadow-sm border border-slate-100">
+                        <MessageSquare size={20} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-800">Mensagens Diretas</p>
+                        <p className="text-xs text-slate-500">Habilitar/Desabilitar a aba de mensagens para funcionários.</p>
+                      </div>
+                  </div>
+                  
+                  <button 
+                    onClick={onToggleMessagesTab}
+                    className={`transition-all duration-300 ${isMessagesTabEnabled ? 'text-green-500' : 'text-slate-400'}`}
+                  >
+                    {isMessagesTabEnabled ? (
                       <ToggleRight size={40} fill="currentColor" className="opacity-100" />
                     ) : (
                       <ToggleLeft size={40} className="opacity-100" />
