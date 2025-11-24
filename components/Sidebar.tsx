@@ -12,6 +12,7 @@ interface SidebarProps {
   mobileMenuOpen: boolean;
   setMobileMenuOpen: (open: boolean) => void;
   messageStatus: 'red' | 'green' | 'none';
+  isMessagesTabEnabled?: boolean;
 }
 
 type MenuItem = {
@@ -20,7 +21,17 @@ type MenuItem = {
   label: string;
 };
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, user, onLogout, themeColor, mobileMenuOpen, setMobileMenuOpen, messageStatus }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ 
+  activeTab, 
+  setActiveTab, 
+  user, 
+  onLogout, 
+  themeColor, 
+  mobileMenuOpen, 
+  setMobileMenuOpen, 
+  messageStatus,
+  isMessagesTabEnabled = false
+}) => {
   const [orderedItems, setOrderedItems] = useState<MenuItem[]>([]);
   const dragItem = useRef<number | null>(null);
   const dragOverItem = useRef<number | null>(null);
@@ -33,9 +44,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, user,
     if (user.role === 'super_admin') {
         baseItems = [
           { id: 'branches', icon: Building, label: 'Unidades' },
-          { id: 'break_monitor', icon: Timer, label: 'Monitoramento' },
           { id: 'team', icon: Users, label: 'Admin & Equipes' },
-          { id: 'calendar', icon: CalendarRange, label: 'Feriados' },
           { id: 'settings', icon: Settings, label: 'Configurações' }
         ];
     } else {
@@ -46,9 +55,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, user,
           { id: 'calendar', icon: CalendarRange, label: 'Feriados' },
         ];
 
-        // Messages tab: Always active for admins, or if status is not none for employees
+        // Messages tab: Always active for admins, OR if globally enabled, OR if status is not none
         const isAdmin = user.role === 'admin';
-        if (isAdmin || messageStatus !== 'none') {
+        if (isAdmin || isMessagesTabEnabled || messageStatus !== 'none') {
             baseItems.splice(1, 0, { id: 'messages', icon: MessageCircle, label: 'Mensagens' });
         }
 
@@ -82,7 +91,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, user,
     } else {
         setOrderedItems(baseItems);
     }
-  }, [user?.role, user?.id, messageStatus]);
+  }, [user?.role, user?.id, messageStatus, isMessagesTabEnabled]);
 
   const handleTabClick = (id: string) => {
     setActiveTab(id);

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { AnnouncementItem, ThemeColor, UserRole, DirectMessage } from '../types';
-import { Calendar, Trash2, Clock, UserCircle, CheckCircle2, Layout, AlertCircle, MessageCircle, Send, FileText, Image as ImageIcon, Coffee, Sparkles, Sun, Smile } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { AnnouncementItem, ThemeColor, UserRole, DirectMessage, User } from '../types';
+import { Calendar, Trash2, Clock, UserCircle, CheckCircle2, Layout, AlertCircle, MessageCircle, Send, FileText, Image as ImageIcon, Coffee, Sparkles, Sun, Smile, Plus, X, Paperclip, Search } from 'lucide-react';
 
 interface AnnouncementsProps {
   items: AnnouncementItem[];
@@ -14,6 +14,9 @@ interface AnnouncementsProps {
   onMarkAsRead?: (messageId: string) => void;
   title?: string;
   subtitle?: string;
+  // New props for sending new messages
+  users?: User[];
+  onSendMessage?: (userId: string, message: string, file?: File, durationMinutes?: number) => void;
 }
 
 export const Announcements: React.FC<AnnouncementsProps> = ({ 
@@ -27,10 +30,20 @@ export const Announcements: React.FC<AnnouncementsProps> = ({
   onDeleteMessage,
   onMarkAsRead,
   title = "Mural de Avisos",
-  subtitle = "Atualizações e comunicados importantes da empresa."
+  subtitle = "Atualizações e comunicados importantes da empresa.",
+  users = [],
+  onSendMessage
 }) => {
   const firstName = userName.split(' ')[0];
   const [replyText, setReplyText] = useState<Record<string, string>>({});
+
+  // New Message Modal States
+  const [isNewMsgModalOpen, setIsNewMsgModalOpen] = useState(false);
+  const [targetUserId, setTargetUserId] = useState('');
+  const [newMessageText, setNewMessageText] = useState('');
+  const [newMessageDuration, setNewMessageDuration] = useState('1440');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleReplyChange = (id: string, text: string) => {
     setReplyText(prev => ({ ...prev, [id]: text }));
@@ -44,19 +57,167 @@ export const Announcements: React.FC<AnnouncementsProps> = ({
       }
   };
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files[0]) {
+          setSelectedFile(e.target.files[0]);
+      }
+  };
+
+  const handleSubmitNewMessage = () => {
+      if (targetUserId && newMessageText && onSendMessage) {
+          const duration = parseInt(newMessageDuration);
+          onSendMessage(targetUserId, newMessageText, selectedFile || undefined, duration);
+          
+          // Reset and Close
+          setIsNewMsgModalOpen(false);
+          setTargetUserId('');
+          setNewMessageText('');
+          setSelectedFile(null);
+          setNewMessageDuration('1440');
+      }
+  };
+
+  const isAdmin = userRole === 'admin' || userRole === 'super_admin';
+
   return (
     <div className="space-y-8 animate-fade-in">
+      {/* NEW MESSAGE MODAL */}
+      {isNewMsgModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-up border border-slate-100">
+                <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50">
+                    <h3 className="text-lg font-bold text-slate-800 flex items-center">
+                        <MessageCircle size={18} className="mr-2 text-blue-500" />
+                        Nova Mensagem Privada
+                    </h3>
+                    <button onClick={() => setIsNewMsgModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+                        <X size={20} />
+                    </button>
+                </div>
+                <div className="p-6 space-y-4">
+                    {/* User Selection */}
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Para quem?</label>
+                        <div className="relative">
+                            <UserCircle size={16} className="absolute left-3 top-3 text-slate-400" />
+                            <select 
+                                value={targetUserId}
+                                onChange={(e) => setTargetUserId(e.target.value)}
+                                className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm text-slate-700 appearance-none"
+                            >
+                                <option value="">Selecione um funcionário...</option>
+                                {users.filter(u => u.role !== 'super_admin').map(u => (
+                                    <option key={u.id} value={u.id}>
+                                        {u.name} {u.jobTitle ? `(${u.jobTitle})` : ''}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Message Body */}
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Mensagem</label>
+                        <textarea 
+                            value={newMessageText}
+                            onChange={(e) => setNewMessageText(e.target.value)}
+                            className="w-full h-32 bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                            placeholder="Digite sua mensagem aqui..."
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        {/* Timer */}
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Visibilidade</label>
+                            <div className="relative">
+                                <Clock size={16} className="absolute left-3 top-2.5 text-slate-400" />
+                                <select 
+                                    value={newMessageDuration}
+                                    onChange={(e) => setNewMessageDuration(e.target.value)}
+                                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 appearance-none"
+                                >
+                                    <option value="15">15 Minutos</option>
+                                    <option value="60">1 Hora</option>
+                                    <option value="360">6 Horas</option>
+                                    <option value="1440">24 Horas</option>
+                                    <option value="2880">48 Horas</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Attachment */}
+                        <div>
+                             <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Anexo</label>
+                             <div className="flex items-center">
+                                <button
+                                    type="button"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-100 text-xs font-medium flex items-center justify-center transition-colors h-[38px]"
+                                >
+                                    <Paperclip size={14} className="mr-2" />
+                                    {selectedFile ? 'Alterar' : 'Anexar'}
+                                </button>
+                                <input 
+                                    type="file"
+                                    ref={fileInputRef}
+                                    className="hidden"
+                                    accept=".pdf,image/*"
+                                    onChange={handleFileSelect}
+                                />
+                             </div>
+                        </div>
+                    </div>
+
+                    {selectedFile && (
+                        <div className="flex items-center justify-between bg-blue-50 p-2 rounded-lg border border-blue-100">
+                            <div className="flex items-center overflow-hidden">
+                                {selectedFile.type.includes('pdf') ? <FileText size={14} className="text-blue-600 mr-2 shrink-0" /> : <ImageIcon size={14} className="text-blue-600 mr-2 shrink-0" />}
+                                <span className="text-xs text-blue-800 truncate">{selectedFile.name}</span>
+                            </div>
+                            <button onClick={() => setSelectedFile(null)} className="text-blue-400 hover:text-red-500 ml-2">
+                                <X size={14} />
+                            </button>
+                        </div>
+                    )}
+
+                    <button 
+                        onClick={handleSubmitNewMessage}
+                        disabled={!newMessageText.trim() || !targetUserId}
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition-all flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <Send size={16} className="mr-2" />
+                        Enviar Mensagem
+                    </button>
+                </div>
+            </div>
+          </div>
+      )}
+
       <div className="flex items-center justify-between">
          <div>
             <h2 className="text-2xl font-bold text-slate-800 tracking-tight">{title}</h2>
             <p className="text-slate-500 text-sm mt-1">{subtitle}</p>
          </div>
-         {(items.length > 0 || messages.length > 0) && (
-            <span className={`bg-${themeColor}-50 text-${themeColor}-700 border border-${themeColor}-200 text-xs font-bold px-3 py-1.5 rounded-full flex items-center shadow-sm`}>
-                <AlertCircle size={14} className="mr-1.5" />
-                {items.length + messages.length} {items.length + messages.length === 1 ? 'ativo' : 'ativos'}
-            </span>
-         )}
+         <div className="flex items-center gap-3">
+             {(items.length > 0 || messages.length > 0) && (
+                <span className={`bg-${themeColor}-50 text-${themeColor}-700 border border-${themeColor}-200 text-xs font-bold px-3 py-1.5 rounded-full flex items-center shadow-sm`}>
+                    <AlertCircle size={14} className="mr-1.5" />
+                    {items.length + messages.length} {items.length + messages.length === 1 ? 'ativo' : 'ativos'}
+                </span>
+             )}
+             
+             {/* Add Button for Admins in Message View */}
+             {isAdmin && onSendMessage && (
+                 <button 
+                    onClick={() => setIsNewMsgModalOpen(true)}
+                    className={`bg-${themeColor}-600 hover:bg-${themeColor}-700 text-white p-2 rounded-full shadow-lg shadow-${themeColor}-500/30 transition-all active:scale-95`}
+                    title="Nova Mensagem Privada"
+                 >
+                    <Plus size={20} />
+                 </button>
+             )}
+         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6">
@@ -77,7 +238,12 @@ export const Announcements: React.FC<AnnouncementsProps> = ({
                        <div>
                            <h3 className="text-base font-bold text-slate-800">Mensagem Direta</h3>
                            <p className="text-xs text-slate-500 flex items-center">
-                               <span className="font-semibold text-purple-600 mr-1">{msg.senderName || 'Administração'}</span>
+                               {/* If Admin viewing: Show who it was sent TO. If Employee: Show who sent it. */}
+                               {isAdmin ? (
+                                   <span className="font-semibold text-purple-600 mr-1">Para: {users.find(u => u.id === msg.userId)?.name || 'Usuário'}</span>
+                               ) : (
+                                   <span className="font-semibold text-purple-600 mr-1">{msg.senderName || 'Administração'}</span>
+                               )}
                                • {msg.date}
                            </p>
                        </div>
@@ -259,7 +425,7 @@ export const Announcements: React.FC<AnnouncementsProps> = ({
                     )}
                  </div>
                  
-                 {/* Floating Decorative Elements */}
+                 {/* Floating Decorative Elements - Slowed down bounce for 'subtle' effect */}
                  <div className={`absolute -right-4 top-0 bg-white p-2 rounded-xl shadow-sm rotate-12 animate-bounce`} style={{ animationDuration: '3s' }}>
                     <Sun size={20} className="text-orange-400" fill="currentColor" />
                  </div>
@@ -270,26 +436,39 @@ export const Announcements: React.FC<AnnouncementsProps> = ({
              
              <div className="relative z-10 max-w-md mx-auto space-y-3">
                 <h3 className={`text-3xl font-black tracking-tight text-slate-800`}>
-                    {title === 'Mensagens Recebidas' ? 'Caixa Limpa!' : 'Tudo Tranquilo!'}
+                    {title === 'Mensagens Recebidas' ? 'Caixa limpa!' : 'Tudo tranquilo por aqui!'}
                 </h3>
                 <p className="text-slate-500 text-lg font-medium leading-relaxed">
                     {title === 'Mensagens Recebidas' 
                       ? 'Você leu todas as suas mensagens. Hora de focar no que importa!' 
-                      : `Relaxa, ${firstName}! O mural de avisos está zerado e você está em dia com tudo.`}
+                      : `Relaxa, ${firstName}! O mural de avisos está zerado.`}
                 </p>
                 
                 <div className="pt-6">
-                    <span className={`
-                        inline-flex items-center px-6 py-3 rounded-full text-sm font-bold shadow-sm transition-all
-                        bg-white text-${themeColor}-600 border border-${themeColor}-100
-                        group-hover:shadow-md group-hover:border-${themeColor}-200 group-hover:-translate-y-0.5
-                    `}>
-                        {title === 'Mensagens Recebidas' ? (
-                             <>✨ Nenhuma pendência</>
-                        ) : (
-                             <>🚀 Aproveite o dia</>
-                        )}
-                    </span>
+                    {isAdmin && title === 'Mensagens Recebidas' ? (
+                        <button 
+                            onClick={() => setIsNewMsgModalOpen(true)}
+                            className={`
+                                inline-flex items-center px-6 py-3 rounded-full text-sm font-bold shadow-lg transition-all
+                                bg-${themeColor}-600 text-white shadow-${themeColor}-500/30 hover:bg-${themeColor}-700 hover:scale-105
+                            `}
+                        >
+                            <Plus size={18} className="mr-2" />
+                            Nova Mensagem
+                        </button>
+                    ) : (
+                        <span className={`
+                            inline-flex items-center px-6 py-3 rounded-full text-sm font-bold shadow-sm transition-all
+                            bg-white text-${themeColor}-600 border border-${themeColor}-100
+                            group-hover:shadow-md group-hover:border-${themeColor}-200 group-hover:-translate-y-0.5
+                        `}>
+                            {title === 'Mensagens Recebidas' ? (
+                                <>✨ Nenhuma pendência</>
+                            ) : (
+                                <>🚀 Aproveite o dia</>
+                            )}
+                        </span>
+                    )}
                 </div>
              </div>
           </div>

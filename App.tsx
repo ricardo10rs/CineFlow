@@ -493,10 +493,10 @@ export default function App() {
   // Requirement said "Messages tab should always be active for admin". 
   // Redirect only if NOT admin and messages empty.
   useEffect(() => {
-      if (activeTab === 'messages' && messageStatus === 'none' && user?.role !== 'admin' && user?.role !== 'super_admin') {
+      if (activeTab === 'messages' && messageStatus === 'none' && !isMessagesTabEnabled && user?.role !== 'admin' && user?.role !== 'super_admin') {
           setActiveTab('announcements');
       }
-  }, [activeTab, messageStatus, user?.role]);
+  }, [activeTab, messageStatus, user?.role, isMessagesTabEnabled]);
 
   if (!user) {
     return <Login onLogin={handleLogin} onRecoverPassword={handleRecoverPassword} onRegister={handleRegister} />;
@@ -524,6 +524,7 @@ export default function App() {
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
         messageStatus={messageStatus}
+        isMessagesTabEnabled={isMessagesTabEnabled}
       />
       
       <main className="flex-1 md:ml-64 relative">
@@ -576,7 +577,7 @@ export default function App() {
 
           {activeTab === 'announcements' && <Announcements items={announcements} themeColor={currentTheme} userRole={user.role} onDelete={id => setItems(p => p.filter(i => i.id !== id))} userName={user.name} messages={[]} />}
 
-          {activeTab === 'messages' && <Announcements title="Mensagens Recebidas" subtitle="Comunicação direta" items={[]} themeColor={currentTheme} userRole={user.role} onDelete={() => {}} userName={user.name} messages={visibleMessages} onReply={handleReplyToMessage} onDeleteMessage={handleDeleteDirectMessage} />}
+          {activeTab === 'messages' && <Announcements title="Mensagens Recebidas" subtitle="Comunicação direta" items={[]} themeColor={currentTheme} userRole={user.role} onDelete={() => {}} userName={user.name} messages={visibleMessages} onReply={handleReplyToMessage} onDeleteMessage={handleDeleteDirectMessage} users={visibleUsers} onSendMessage={handleSendDirectMessage} />}
 
           {activeTab === 'board' && <Board themeColor={currentTheme} activeBreak={activeBreaks.find(b => b.userId === user.id)} onStartBreak={t => setActiveBreaks(p => [...p, {id: Date.now().toString(), userId: user.id, branchId: user.branchId!, userName: user.name, userAvatar: user.avatar, startTime: t, duration: 3600}])} onEndBreak={() => setActiveBreaks(p => p.filter(b => b.userId !== user.id))} onNotify={triggerNotification} />}
           
@@ -586,7 +587,11 @@ export default function App() {
               const newValue = !isWeeklyScheduleEnabled;
               setIsWeeklyScheduleEnabled(newValue);
               localStorage.setItem('cineflow_weekly_schedule', JSON.stringify(newValue));
-          }} isMessagesTabEnabled={isMessagesTabEnabled} onToggleMessagesTab={() => setIsMessagesTabEnabled(!isMessagesTabEnabled)} onUpdateAvatar={(f) => {}} />}
+          }} isMessagesTabEnabled={isMessagesTabEnabled} onToggleMessagesTab={() => {
+              const newValue = !isMessagesTabEnabled;
+              setIsMessagesTabEnabled(newValue);
+              localStorage.setItem('cineflow_messages_enabled', JSON.stringify(newValue));
+          }} onUpdateAvatar={(f) => {}} />}
           
           {activeTab === 'break_monitor' && <BreakMonitor activeBreaks={visibleBreaks} themeColor={currentTheme} breakHistory={visibleBreakHistory} />}
 
