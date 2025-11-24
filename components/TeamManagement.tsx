@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { User, UserRole, JobTitle, Branch } from '../types';
 import { UserPlus, Trash2, User as UserIcon, Lock, Mail, Phone, Briefcase, Filter, ArrowUpDown, MessageSquare, X, Send, Plus, Pencil, Building, Paperclip, FileText, Image as ImageIcon, Settings, Check, Save, EyeOff, Clock } from 'lucide-react';
@@ -94,15 +93,28 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
     e.preventDefault();
     
     if (editingUser) {
-        onUpdateUser(editingUser.id, {
-            name, 
-            email, 
-            phone, 
-            jobTitle, 
-            role, 
-            branchId: currentUserRole === 'super_admin' ? branchId : undefined,
-            hideWeeklySchedule // Update hidden status
-        });
+        // Construct the update object carefully to avoid overwriting branchId with undefined
+        const updateData: Partial<User> = {
+            name,
+            email,
+            phone,
+            jobTitle,
+            role,
+            hideWeeklySchedule
+        };
+
+        // Only update password if provided
+        if (password) {
+            updateData.password = password;
+        }
+
+        // Only update branchId if super_admin or if user is being moved
+        // For regular admins, branchId remains implicitly the same as the admin
+        if (currentUserRole === 'super_admin') {
+            updateData.branchId = branchId;
+        }
+
+        onUpdateUser(editingUser.id, updateData);
         setEditingUser(null);
     } else {
         onAddUser({ 
@@ -131,6 +143,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
     setRole('employee');
     setHideWeeklySchedule(false);
     setEditingUser(null);
+    // Scroll to top of list if needed or just reset state
   };
 
   const handleEditClick = (user: User) => {
@@ -142,7 +155,10 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
       setRole(user.role);
       setHideWeeklySchedule(user.hideWeeklySchedule || false);
       if (user.branchId) setBranchId(user.branchId);
-      setPassword(''); // Don't show password, only set if changing
+      setPassword(''); // Reset password field
+      
+      // Scroll to top to show form on mobile
+      window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDeleteClick = (userId: string, userName: string) => {
@@ -496,22 +512,22 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
                 )}
               </div>
 
-              {!editingUser && (
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Senha de Acesso</label>
-                    <div className="relative">
-                      <Lock size={16} className="absolute left-3 top-3 text-slate-400" />
-                      <input
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 transition-all outline-none text-sm text-slate-700 placeholder-slate-400"
-                        placeholder="••••••••"
-                      />
-                    </div>
-                  </div>
-              )}
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                    {editingUser ? 'Nova Senha (Opcional)' : 'Senha de Acesso'}
+                </label>
+                <div className="relative">
+                    <Lock size={16} className="absolute left-3 top-3 text-slate-400" />
+                    <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required={!editingUser}
+                    className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 transition-all outline-none text-sm text-slate-700 placeholder-slate-400"
+                    placeholder={editingUser ? "Deixe em branco para manter" : "••••••••"}
+                    />
+                </div>
+              </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Perfil de Acesso</label>
@@ -533,7 +549,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center space-x-2 pt-2">
+              <div className="flex items-center space-x-2 pt-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
                     <input
                         type="checkbox"
                         id="hideSchedule"
@@ -541,9 +557,10 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
                         onChange={(e) => setHideWeeklySchedule(e.target.checked)}
                         className="h-4 w-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
                     />
-                    <label htmlFor="hideSchedule" className="text-xs text-slate-600 cursor-pointer select-none flex items-center">
-                         <EyeOff size={14} className="mr-1.5 text-slate-400" />
-                         Ocultar Escala Semanal (Ex: Férias)
+                    <label htmlFor="hideSchedule" className="text-xs text-slate-600 cursor-pointer select-none flex items-center flex-1">
+                         <EyeOff size={14} className="mr-2 text-slate-400" />
+                         <span>Ocultar Escala Semanal</span>
+                         <span className="ml-1 text-slate-400 text-[10px]">(Ex: Férias)</span>
                     </label>
               </div>
 

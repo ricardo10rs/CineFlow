@@ -314,7 +314,15 @@ export default function App() {
           setUser(foundUser);
           const savedTheme = localStorage.getItem(`cineflow_theme_${foundUser.id}`);
           setCurrentTheme((savedTheme as ThemeColor) || foundUser.themeColor || 'blue');
-          setActiveTab(foundUser.role === 'super_admin' ? 'branches' : 'announcements');
+          
+          // Force proper landing page based on role
+          if (foundUser.role === 'super_admin') {
+              setActiveTab('branches');
+          } else {
+              // Both regular Admin and Employee land on Announcements
+              setActiveTab('announcements');
+          }
+          
           resolve();
         } else {
           reject(new Error("Invalid credentials"));
@@ -362,6 +370,15 @@ export default function App() {
       setActiveTab('announcements'); 
       setNotifications([]); 
       setActiveToasts([]);
+  };
+
+  const handleToggleUserWeeklySchedule = (targetUserId: string) => {
+    setUsers(prev => prev.map(u => {
+      if (u.id === targetUserId) {
+        return { ...u, hideWeeklySchedule: !u.hideWeeklySchedule };
+      }
+      return u;
+    }));
   };
   
   const handleSendDirectMessage = (userId: string, message: string, file?: File, durationMinutes: number = 24 * 60) => {
@@ -555,7 +572,7 @@ export default function App() {
         <div className="p-4 md:p-8 pt-24 md:pt-28 max-w-6xl mx-auto">
           {user.role === 'super_admin' && activeTab === 'branches' && <BranchManagement branches={branches} onAddBranch={(n,l) => setBranches([...branches, {id: Date.now().toString(), name:n, location:l}])} onDeleteBranch={(id) => setBranches(prev => prev.filter(b => b.id !== id))} />}
           
-          {activeTab === 'schedule' && <Schedule shifts={visibleShifts} dailySchedules={dailySchedules} themeColor={currentTheme} userRole={user.role} userId={user.id} users={visibleUsers} requests={visibleRequests} publishedMonths={publishedMonths} onUpdateShifts={s => setShifts(s)} onUpdateDailySchedule={s => setDailySchedules(p => [...p.filter(x => x.id !== s.id), s])} onBulkUpdateDailySchedule={list => setDailySchedules(p => [...p, ...list])} onRequestOff={d => setOffRequests(p => [...p, {id: Date.now().toString(), branchId: user.branchId!, userId: user.id, userName: user.name, date: d, status: 'pending', requestDate: new Date().toLocaleDateString()}])} onResolveRequest={(id, st) => setOffRequests(p => p.map(r => r.id === id ? {...r, status: st} : r))} onDeleteRequest={id => setOffRequests(p => p.filter(r => r.id !== id))} onTogglePublish={k => setPublishedMonths(p => p.includes(k) ? p.filter(x => x !== k) : [...p, k])} isSundayOffEnabled={isSundayOffEnabled} />}
+          {activeTab === 'schedule' && <Schedule shifts={visibleShifts} dailySchedules={dailySchedules} themeColor={currentTheme} userRole={user.role} userId={user.id} users={visibleUsers} requests={visibleRequests} publishedMonths={publishedMonths} onUpdateShifts={s => setShifts(s)} onUpdateDailySchedule={s => setDailySchedules(p => [...p.filter(x => x.id !== s.id), s])} onBulkUpdateDailySchedule={list => setDailySchedules(p => [...p, ...list])} onRequestOff={d => setOffRequests(p => [...p, {id: Date.now().toString(), branchId: user.branchId!, userId: user.id, userName: user.name, date: d, status: 'pending', requestDate: new Date().toLocaleDateString()}])} onResolveRequest={(id, st) => setOffRequests(p => p.map(r => r.id === id ? {...r, status: st} : r))} onDeleteRequest={id => setOffRequests(p => p.filter(r => r.id !== id))} onTogglePublish={k => setPublishedMonths(p => p.includes(k) ? p.filter(x => x !== k) : [...p, k])} onToggleUserWeeklySchedule={handleToggleUserWeeklySchedule} isSundayOffEnabled={isSundayOffEnabled} />}
 
           {activeTab === 'announcements' && <Announcements items={announcements} themeColor={currentTheme} userRole={user.role} onDelete={id => setItems(p => p.filter(i => i.id !== id))} userName={user.name} messages={[]} />}
 

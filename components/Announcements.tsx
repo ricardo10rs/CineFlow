@@ -1,7 +1,6 @@
-
 import React, { useState } from 'react';
 import { AnnouncementItem, ThemeColor, UserRole, DirectMessage } from '../types';
-import { Calendar, Trash2, Clock, UserCircle, CheckCircle2, Layout, AlertCircle, MessageCircle, Send, FileText, Image as ImageIcon } from 'lucide-react';
+import { Calendar, Trash2, Clock, UserCircle, CheckCircle2, Layout, AlertCircle, MessageCircle, Send, FileText, Image as ImageIcon, Coffee, Sparkles, Sun, Smile } from 'lucide-react';
 
 interface AnnouncementsProps {
   items: AnnouncementItem[];
@@ -230,45 +229,68 @@ export const Announcements: React.FC<AnnouncementsProps> = ({
           </div>
         ))}
 
-        {/* Empty State Card - Visually Rich */}
+        {/* Empty State Card - Visually Rich & Relaxed */}
         {items.length === 0 && messages.length === 0 && (
-          <div className={`bg-white rounded-3xl border border-slate-200 p-12 shadow-sm relative overflow-hidden flex flex-col items-center justify-center text-center min-h-[400px] animate-fade-in`}>
+          <div className={`
+            relative overflow-hidden rounded-3xl p-12 text-center min-h-[450px] flex flex-col items-center justify-center
+            bg-gradient-to-br from-white via-slate-50 to-${themeColor}-50/50 border border-slate-200/60 shadow-xl shadow-slate-200/40
+            animate-fade-in group
+          `}>
+             {/* Dynamic Background Shapes */}
+             <div className={`absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-${themeColor}-200/20 to-transparent rounded-full blur-3xl -translate-y-1/2 translate-x-1/2`}></div>
+             <div className={`absolute bottom-0 left-0 w-80 h-80 bg-gradient-to-tr from-${themeColor}-300/10 to-transparent rounded-full blur-3xl translate-y-1/2 -translate-x-1/3`}></div>
              
-             {/* Decorative Background Elements */}
-             <div className={`absolute -bottom-24 -right-24 w-80 h-80 bg-${themeColor}-50 rounded-full blur-3xl opacity-50 pointer-events-none`}></div>
-             <div className={`absolute -top-24 -left-24 w-60 h-60 bg-blue-50 rounded-full blur-3xl opacity-40 pointer-events-none`}></div>
-             
-             {/* Pin & Icon */}
-             <div className="relative mb-8">
-                 <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 -mt-6 z-20">
-                    <div className="w-3 h-3 rounded-full bg-slate-300 shadow-sm border-2 border-white"></div>
+             {/* Main Illustration Container */}
+             <div className="relative z-10 mb-8 transform transition-transform duration-700 group-hover:scale-105">
+                 <div className={`
+                    w-32 h-32 rounded-[2rem] bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] 
+                    flex items-center justify-center relative rotate-3 group-hover:rotate-6 transition-all duration-500
+                    border border-white/50 backdrop-blur-sm
+                 `}>
+                    {title === 'Mensagens Recebidas' ? (
+                       <MessageCircle size={56} className={`text-${themeColor}-400 drop-shadow-sm`} strokeWidth={1.5} />
+                    ) : (
+                       <div className="relative">
+                          <Coffee size={56} className={`text-${themeColor}-500 drop-shadow-sm`} strokeWidth={1.5} />
+                          <div className="absolute -top-2 -right-2">
+                             <Sparkles size={24} className="text-yellow-400 animate-pulse" fill="currentColor" />
+                          </div>
+                       </div>
+                    )}
                  </div>
-                 <div className={`bg-${themeColor}-50 p-6 rounded-3xl border border-${themeColor}-100 shadow-inner transform rotate-3 transition-transform duration-500 hover:rotate-0`}>
-                    <Layout size={48} className={`text-${themeColor}-500`} strokeWidth={1.5} />
+                 
+                 {/* Floating Decorative Elements */}
+                 <div className={`absolute -right-4 top-0 bg-white p-2 rounded-xl shadow-sm rotate-12 animate-bounce`} style={{ animationDuration: '3s' }}>
+                    <Sun size={20} className="text-orange-400" fill="currentColor" />
+                 </div>
+                 <div className={`absolute -left-2 bottom-0 bg-white p-2 rounded-full shadow-sm -rotate-6 animate-bounce`} style={{ animationDuration: '4s', animationDelay: '1s' }}>
+                    <Smile size={20} className={`text-${themeColor}-400`} />
                  </div>
              </div>
              
-             <div className="relative z-10 max-w-md mx-auto">
-                <h3 className="text-2xl font-bold text-slate-800 mb-3">
-                    {title === 'Mensagens Recebidas' ? 'Caixa de Entrada Vazia' : 'Mural Atualizado'}
+             <div className="relative z-10 max-w-md mx-auto space-y-3">
+                <h3 className={`text-3xl font-black tracking-tight text-slate-800`}>
+                    {title === 'Mensagens Recebidas' ? 'Caixa Limpa!' : 'Tudo Tranquilo!'}
                 </h3>
-                <p className="text-slate-500 text-lg leading-relaxed mb-8">
+                <p className="text-slate-500 text-lg font-medium leading-relaxed">
                     {title === 'Mensagens Recebidas' 
-                      ? 'Você não possui novas mensagens diretas no momento.' 
-                      : `Olá, ${firstName}! Não há novos comunicados ou pendências no quadro de avisos no momento.`}
+                      ? 'Você leu todas as suas mensagens. Hora de focar no que importa!' 
+                      : `Relaxa, ${firstName}! O mural de avisos está zerado e você está em dia com tudo.`}
                 </p>
                 
-                <div className="flex justify-center">
-                    <span className="inline-flex items-center text-sm font-bold text-slate-600 bg-slate-50 px-5 py-2.5 rounded-full border border-slate-200 shadow-sm">
-                        <CheckCircle2 size={16} className={`mr-2 text-${themeColor}-500`} />
-                        Tudo em ordem
+                <div className="pt-6">
+                    <span className={`
+                        inline-flex items-center px-6 py-3 rounded-full text-sm font-bold shadow-sm transition-all
+                        bg-white text-${themeColor}-600 border border-${themeColor}-100
+                        group-hover:shadow-md group-hover:border-${themeColor}-200 group-hover:-translate-y-0.5
+                    `}>
+                        {title === 'Mensagens Recebidas' ? (
+                             <>✨ Nenhuma pendência</>
+                        ) : (
+                             <>🚀 Aproveite o dia</>
+                        )}
                     </span>
                 </div>
-             </div>
-             
-             {/* Footer decorative info */}
-             <div className="absolute bottom-6 w-full text-center">
-                 <span className="text-[10px] text-slate-300 uppercase tracking-widest font-bold">CineFlow • {new Date().getFullYear()}</span>
              </div>
           </div>
         )}
@@ -276,4 +298,3 @@ export const Announcements: React.FC<AnnouncementsProps> = ({
     </div>
   );
 };
-    
