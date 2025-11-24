@@ -547,22 +547,6 @@ export const Schedule: React.FC<ScheduleProps> = ({
                 </div>
 
                 <div className="flex flex-col items-end gap-2">
-                    {userRole === 'admin' && (
-                        <div className="flex items-center gap-2 mb-1">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase">Preencher:</span>
-                            <button onClick={() => handleBulkFill('Work')} className="text-[10px] bg-blue-50 text-blue-600 px-2 py-1 rounded border border-blue-100 font-bold hover:bg-blue-100">Trabalho</button>
-                            <button onClick={() => handleBulkFill('Off')} className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-1 rounded border border-emerald-100 font-bold hover:bg-emerald-100">Folga</button>
-                            
-                            <button 
-                                disabled
-                                className="text-[10px] px-2 py-1 rounded border font-bold flex items-center transition-all bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60"
-                                title="Funcionalidade desabilitada"
-                            >
-                                <Sun size={10} className="mr-1" />
-                                Férias (30 Dias)
-                            </button>
-                        </div>
-                    )}
                     <div className="flex items-center gap-3">
                         <div className="flex items-center bg-slate-50 rounded-lg p-1 border border-slate-200">
                             <button onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() - 1)))} className="p-1 hover:bg-slate-200 rounded text-slate-500 transition-all"><ChevronLeft size={16} /></button>

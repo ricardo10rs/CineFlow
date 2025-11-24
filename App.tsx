@@ -8,6 +8,7 @@ import { Login } from './components/Login';
 import { TeamManagement } from './components/TeamManagement';
 import { Settings } from './components/Settings';
 import { BranchManagement } from './components/BranchManagement';
+import { Board } from './components/Board';
 import { AppItem, AnnouncementItem, ContentType, WorkShift, User, ThemeColor, OffRequest, Notification, DailySchedule, DirectMessage, Branch } from './types';
 import { Plus, Bell, Menu, Mail, Smartphone } from 'lucide-react';
 
@@ -694,6 +695,7 @@ export default function App() {
               <h1 className="text-xl md:text-3xl font-bold text-slate-900 truncate max-w-[200px] md:max-w-none">
                 {user.role === 'super_admin' && activeTab === 'branches' && 'Gestão de Unidades'}
                 {activeTab === 'announcements' && 'Comunicados'}
+                {activeTab === 'board' && 'Meu Quadro'}
                 {activeTab === 'schedule' && 'Escalas de Trabalho'}
                 {activeTab === 'team' && 'Equipe e Acessos'}
                 {activeTab === 'settings' && 'Preferências'}
@@ -759,7 +761,7 @@ export default function App() {
                  )}
               </div>
               
-              {user.role === 'admin' && activeTab !== 'team' && activeTab !== 'settings' && activeTab !== 'schedule' && (
+              {user.role === 'admin' && activeTab !== 'team' && activeTab !== 'settings' && activeTab !== 'schedule' && activeTab !== 'board' && (
                 <button 
                     onClick={() => setIsUploadModalOpen(true)}
                     className={`hidden md:flex bg-${currentTheme}-600 hover:bg-${currentTheme}-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-lg shadow-${currentTheme}-600/20 items-center`}
@@ -811,7 +813,12 @@ export default function App() {
               themeColor={currentTheme} 
               userRole={user.role}
               onDelete={handleDeleteAnnouncement}
+              userName={user.name}
             />
+          )}
+
+          {activeTab === 'board' && (
+            <Board themeColor={currentTheme} />
           )}
           
           {activeTab === 'team' && (user.role === 'admin' || user.role === 'super_admin') && (
@@ -845,7 +852,7 @@ export default function App() {
         </div>
       </main>
 
-      {user.role === 'admin' && activeTab !== 'team' && activeTab !== 'settings' && activeTab !== 'schedule' && (
+      {user.role === 'admin' && activeTab !== 'team' && activeTab !== 'settings' && activeTab !== 'schedule' && activeTab !== 'board' && (
         <>
           <UploadModal 
             isOpen={isUploadModalOpen} 
