@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Announcements } from './components/Announcements';
@@ -308,6 +307,10 @@ export default function App() {
       setTimeout(() => {
         const foundUser = users.find(u => u.email.toLowerCase() === email.trim().toLowerCase() && u.password === pass);
         if (foundUser) {
+          // Clear any leftover notifications from previous session
+          setNotifications([]);
+          setActiveToasts([]);
+          
           setUser(foundUser);
           const savedTheme = localStorage.getItem(`cineflow_theme_${foundUser.id}`);
           setCurrentTheme((savedTheme as ThemeColor) || foundUser.themeColor || 'blue');
@@ -354,7 +357,12 @@ export default function App() {
       return Promise.resolve();
   };
 
-  const handleLogout = () => { setUser(null); setActiveTab('announcements'); };
+  const handleLogout = () => { 
+      setUser(null); 
+      setActiveTab('announcements'); 
+      setNotifications([]); 
+      setActiveToasts([]);
+  };
   
   const handleSendDirectMessage = (userId: string, message: string, file?: File, durationMinutes: number = 24 * 60) => {
     const targetUser = users.find(u => u.id === userId);
