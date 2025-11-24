@@ -109,6 +109,15 @@ export default function App() {
   const [activeBreaks, setActiveBreaks] = useState<BreakSession[]>([]);
   const [breakHistory, setBreakHistory] = useState<BreakSession[]>(getYesterdayBreakHistory());
 
+  // --- LOAD GLOBAL PREFERENCES (Admin) ---
+  useEffect(() => {
+    const savedSunday = localStorage.getItem('cineflow_sunday_off');
+    if (savedSunday !== null) setIsSundayOffEnabled(JSON.parse(savedSunday));
+
+    const savedWeekly = localStorage.getItem('cineflow_weekly_schedule');
+    if (savedWeekly !== null) setIsWeeklyScheduleEnabled(JSON.parse(savedWeekly));
+  }, []);
+
   // --- NOTIFICATION CLEANUP LOGIC (1 HOUR) ---
   useEffect(() => {
     const interval = setInterval(() => {
@@ -231,13 +240,6 @@ export default function App() {
     };
     setNotifications(prev => [newNotif, ...prev]);
 
-    // Toast is immediate visual feedback for the current user
-    // If targetUserId is set and it's NOT me, I shouldn't see the toast unless I'm the sender (handled separately if needed)
-    // For now, we show toast to the person triggering the action or receiving it if they are logged in.
-    // In this mocked app, we'll show toast to current user if it's meant for them OR if no target specified.
-    
-    // However, for admin sending 'Late Notification', we might want a different toast for admin vs employee.
-    // Simplifying: Show toast always for immediate feedback in this demo context.
     const toastId = Date.now().toString() + type;
     setActiveToasts(prev => [...prev, { id: toastId, msg: message, type }]);
     setTimeout(() => {
@@ -259,7 +261,15 @@ export default function App() {
         const foundUser = users.find(u => u.email.toLowerCase() === normalizedEmail && u.password === pass);
         if (foundUser) {
           setUser(foundUser);
-          setCurrentTheme(foundUser.themeColor || 'blue');
+          
+          // LOAD USER SAVED THEME
+          const savedTheme = localStorage.getItem(`cineflow_theme_${foundUser.id}`);
+          if (savedTheme) {
+              setCurrentTheme(savedTheme as ThemeColor);
+          } else {
+              setCurrentTheme(foundUser.themeColor || 'blue');
+          }
+          
           // Set correct starting tab
           if (foundUser.role === 'super_admin') {
              setActiveTab('branches');
@@ -339,6 +349,9 @@ export default function App() {
         // Auto Login
         setUser(newUser);
         setCurrentTheme('blue');
+        // Save initial theme
+        localStorage.setItem(`cineflow_theme_${newUser.id}`, 'blue');
+        
         setActiveTab('branches');
         
         resolve();
@@ -366,8 +379,6 @@ export default function App() {
   const handleLogout = () => {
     setUser(null);
     setActiveTab('announcements'); 
-    // IMPORTANT: Do NOT clear notifications here. They need to persist so the user sees them on login.
-    // setNotifications([]); 
   };
 
   const handleAddUser = (newUser: Omit<User, 'id' | 'avatar'>) => {
@@ -451,6 +462,8 @@ export default function App() {
         const updatedUser = { ...user, themeColor: newColor };
         setUser(updatedUser);
         setUsers(users.map(u => u.id === user.id ? updatedUser : u));
+        // SAVE PREFERENCE
+        localStorage.setItem(`cineflow_theme_${user.id}`, newColor);
     }
   };
 
@@ -629,6 +642,9 @@ export default function App() {
   const handleToggleSundayOff = () => {
     const newState = !isSundayOffEnabled;
     setIsSundayOffEnabled(newState);
+    // SAVE ADMIN PREFERENCE
+    localStorage.setItem('cineflow_sunday_off', JSON.stringify(newState));
+
     if (newState === true) {
       triggerNotification('A agenda para solicitação de folgas de Domingo está ABERTA.', 'sms');
     } else {
@@ -639,6 +655,9 @@ export default function App() {
   const handleToggleWeeklySchedule = () => {
       const newState = !isWeeklyScheduleEnabled;
       setIsWeeklyScheduleEnabled(newState);
+      // SAVE ADMIN PREFERENCE
+      localStorage.setItem('cineflow_weekly_schedule', JSON.stringify(newState));
+
       triggerNotification(`A escala semanal foi ${newState ? 'HABILITADA' : 'DESABILITADA'} para os funcionários.`, 'sms');
   };
 

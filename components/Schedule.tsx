@@ -478,19 +478,40 @@ export const Schedule: React.FC<ScheduleProps> = ({
                     const shiftDate = new Date();
                     shiftDate.setDate(today.getDate() + diff);
                     
+                    const isToday = diff === 0;
                     const dateString = shift.date || shiftDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 
+                    let containerClasses = "p-4 rounded-xl border flex flex-col items-center justify-center text-center transition-all duration-300 relative overflow-hidden";
+                    
+                    if (isToday) {
+                       containerClasses += ` bg-${themeColor}-600 border-${themeColor}-700 shadow-lg shadow-${themeColor}-500/30 scale-105 z-10 ring-2 ring-offset-2 ring-${themeColor}-500`;
+                    } else if (isOff) {
+                       containerClasses += " bg-slate-50 border-slate-200/60";
+                    } else {
+                       containerClasses += " bg-white border-slate-200 shadow-sm";
+                    }
+
                     return (
-                        <div key={shift.id} className={`p-4 rounded-xl border flex flex-col items-center justify-center text-center ${isOff ? 'bg-slate-50 border-slate-200/60' : 'bg-white border-slate-200 shadow-sm'}`}>
-                            <span className="text-xs font-bold uppercase text-slate-400 mb-0.5">{shift.dayOfWeek.substring(0,3)}</span>
-                            <span className="text-xs font-medium text-slate-500 mb-1">{dateString}</span>
-                            <span className="text-sm font-bold text-slate-700 mb-2">{shift.dayOfWeek.split('-')[0]}</span>
+                        <div key={shift.id} className={containerClasses}>
+                            <span className={`text-xs font-bold uppercase mb-0.5 ${isToday ? 'text-white/80' : 'text-slate-400'}`}>{shift.dayOfWeek.substring(0,3)}</span>
+                            <span className={`text-xs font-medium mb-1 ${isToday ? 'text-white/90' : 'text-slate-500'}`}>{dateString}</span>
+                            <span className={`text-sm font-bold mb-2 ${isToday ? 'text-white' : 'text-slate-700'}`}>{shift.dayOfWeek.split('-')[0]}</span>
+                            
+                            {/* Active Indicator Dots for Today */}
+                            {isToday && (
+                                <div className="flex gap-1 mb-2">
+                                    <div className="w-1 h-1 bg-white rounded-full opacity-90"></div>
+                                    <div className="w-1 h-1 bg-white rounded-full opacity-60"></div>
+                                    <div className="w-1 h-1 bg-white rounded-full opacity-30"></div>
+                                </div>
+                            )}
+
                             {isOff ? (
                                 <span className="text-xs font-medium text-slate-500 bg-slate-200/50 px-2 py-1 rounded">Fechado</span>
                             ) : (
                                 <div className="flex flex-col items-center">
-                                    <span className="text-[10px] text-slate-400 font-medium uppercase mb-0.5">Início</span>
-                                    <span className={`text-sm font-bold text-${themeColor}-600`}>
+                                    <span className={`text-[10px] font-medium uppercase mb-0.5 ${isToday ? 'text-white/70' : 'text-slate-400'}`}>Início</span>
+                                    <span className={`text-sm font-bold ${isToday ? 'text-white' : `text-${themeColor}-600`}`}>
                                         {shift.startTime}
                                     </span>
                                 </div>
@@ -557,27 +578,29 @@ export const Schedule: React.FC<ScheduleProps> = ({
                         </div>
 
                         {userRole === 'admin' && (
-                            <button 
-                                onClick={() => onTogglePublish(`${selectedUserId}:${currentMonthKey}`)}
-                                className={`flex items-center px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border ${
-                                    isMonthPublished 
-                                        ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' 
-                                        : 'bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-200'
-                                }`}
-                                title={isMonthPublished ? "Escala visível para o funcionário" : "Escala oculta (rascunho)"}
-                            >
-                                {isMonthPublished ? (
-                                    <>
-                                        <Eye size={14} className="mr-2" />
-                                        Publicada
-                                    </>
-                                ) : (
-                                    <>
-                                        <EyeOff size={14} className="mr-2" />
-                                        Rascunho
-                                    </>
-                                )}
-                            </button>
+                            <>
+                                <button 
+                                    onClick={() => onTogglePublish(`${selectedUserId}:${currentMonthKey}`)}
+                                    className={`flex items-center px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border ${
+                                        isMonthPublished 
+                                            ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' 
+                                            : 'bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-200'
+                                    }`}
+                                    title={isMonthPublished ? "Escala visível para o funcionário" : "Escala oculta (rascunho)"}
+                                >
+                                    {isMonthPublished ? (
+                                        <>
+                                            <Eye size={14} className="mr-2" />
+                                            Publicada
+                                        </>
+                                    ) : (
+                                        <>
+                                            <EyeOff size={14} className="mr-2" />
+                                            Rascunho
+                                        </>
+                                    )}
+                                </button>
+                            </>
                         )}
                     </div>
                 </div>
