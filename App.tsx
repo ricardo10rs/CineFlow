@@ -43,10 +43,10 @@ const INITIAL_SHIFTS: WorkShift[] = [
 ];
 
 const INITIAL_USERS: User[] = [
-  { id: '0', name: 'Super Admin', email: 'super@arco.com', role: 'super_admin', avatar: 'SA', password: '123', themeColor: 'slate', phone: '(00) 0000-0000', jobTitle: 'Diretor' },
-  { id: '1', branchId: '1', name: 'Admin Silva', email: 'admin@empresa.com', role: 'admin', avatar: 'AS', password: '123', themeColor: 'blue', phone: '(11) 99999-0000', jobTitle: 'Gerente' },
-  { id: '2', branchId: '1', name: 'Maria Bilheteira', email: 'maria@empresa.com', role: 'employee', avatar: 'MB', password: '123', themeColor: 'pink', phone: '(11) 98888-1111', jobTitle: 'Bilheteira' },
-  { id: '3', branchId: '2', name: 'João Rio', email: 'joao@rio.com', role: 'admin', avatar: 'JR', password: '123', themeColor: 'green', phone: '(21) 99999-2222', jobTitle: 'Gerente Rio' },
+  { id: '0', name: 'Super Admin', email: 'super@arco.com', role: 'super_admin', avatar: 'SA', password: '123', themeColor: 'slate', phone: '(00) 0000-0000', jobTitle: 'Diretor', gender: 'male' },
+  { id: '1', branchId: '1', name: 'Admin Silva', email: 'admin@empresa.com', role: 'admin', avatar: 'AS', password: '123', themeColor: 'blue', phone: '(11) 99999-0000', jobTitle: 'Gerente', gender: 'male' },
+  { id: '2', branchId: '1', name: 'Maria Bilheteira', email: 'maria@empresa.com', role: 'employee', avatar: 'MB', password: '123', themeColor: 'pink', phone: '(11) 98888-1111', jobTitle: 'Bilheteira', gender: 'female' },
+  { id: '3', branchId: '2', name: 'João Rio', email: 'joao@rio.com', role: 'admin', avatar: 'JR', password: '123', themeColor: 'green', phone: '(21) 99999-2222', jobTitle: 'Gerente Rio', gender: 'male' },
 ];
 
 const INITIAL_OFF_REQUESTS: OffRequest[] = [
@@ -441,7 +441,7 @@ export default function App() {
             setShifts(prev => [...prev, ...newShifts]);
 
             const newUser: User = {
-                id: (Date.now() + 1).toString(), branchId: newBranch.id, name, email, password: pass, role: 'super_admin', phone, avatar: name.substring(0,2).toUpperCase(), themeColor: 'blue', jobTitle: 'Diretor'
+                id: (Date.now() + 1).toString(), branchId: newBranch.id, name, email, password: pass, role: 'super_admin', phone, avatar: name.substring(0,2).toUpperCase(), themeColor: 'blue', jobTitle: 'Diretor', gender: 'male'
             };
             setUsers(prev => [...prev, newUser]);
             setUser(newUser);
@@ -699,17 +699,30 @@ export default function App() {
               <VacationMode returnDate={user.vacationReturnDate!} userName={user.name} themeColor={currentTheme} />
           ) : (
             <>
-                {user.role === 'super_admin' && activeTab === 'branches' && <BranchManagement branches={branches} onAddBranch={(n,l) => setBranches([...branches, {id: Date.now().toString(), name:n, location:l}])} onDeleteBranch={(id) => setBranches(prev => prev.filter(b => b.id !== id))} />}
+                {user.role === 'super_admin' && activeTab === 'branches' && <BranchManagement branches={branches} onAddBranch={(n,l) => setBranches([...branches, {id: Date.now().toString(), name:n, location:l}])} onDeleteBranch={(id) => {
+                    // Safe delete branch: also could remove assigned users or shifts here
+                    setBranches(prev => prev.filter(b => b.id !== id));
+                    setShifts(prev => prev.filter(s => s.branchId !== id)); // Clean up shifts
+                    triggerNotification("Unidade e escalas removidas.", "sms");
+                }} />}
                 
                 {activeTab === 'schedule' && <Schedule shifts={visibleShifts} dailySchedules={dailySchedules} themeColor={currentTheme} userRole={user.role} userId={user.id} users={visibleUsers} requests={visibleRequests} publishedMonths={publishedMonths} onUpdateShifts={s => setShifts(s)} onUpdateDailySchedule={s => setDailySchedules(p => [...p.filter(x => x.id !== s.id), s])} onBulkUpdateDailySchedule={list => setDailySchedules(p => [...p, ...list])} onRequestOff={d => setOffRequests(p => [...p, {id: Date.now().toString(), branchId: user.branchId!, userId: user.id, userName: user.name, date: d, status: 'pending', requestDate: new Date().toLocaleDateString()}])} onResolveRequest={(id, st) => setOffRequests(p => p.map(r => r.id === id ? {...r, status: st} : r))} onDeleteRequest={id => setOffRequests(p => p.filter(r => r.id !== id))} onTogglePublish={k => setPublishedMonths(p => p.includes(k) ? p.filter(x => x !== k) : [...p, k])} onToggleUserWeeklySchedule={handleToggleUserWeeklySchedule} onUpdateUser={(id, data) => setUsers(p => p.map(u => u.id === id ? {...u, ...data} : u))} isSundayOffEnabled={isSundayOffEnabled} isWeeklyScheduleEnabled={isWeeklyScheduleEnabled} />}
 
-                {activeTab === 'announcements' && <Announcements items={announcements} themeColor={currentTheme} userRole={user.role} onDelete={id => setItems(p => p.filter(i => i.id !== id))} userName={user.name} messages={[]} />}
+                {activeTab === 'announcements' && <Announcements items={announcements} themeColor={currentTheme} userRole={user.role} onDelete={id => setItems(p => p.filter(i => i.id !== id))} userName={user.name} messages={[]} userGender={user.gender} />}
 
-                {activeTab === 'messages' && <Announcements title="Mensagens Recebidas" subtitle="Comunicação direta" items={[]} themeColor={currentTheme} userRole={user.role} onDelete={() => {}} userName={user.name} messages={visibleMessages} onReply={handleReplyToMessage} onDeleteMessage={handleDeleteDirectMessage} users={visibleUsers} onSendMessage={handleSendDirectMessage} />}
+                {activeTab === 'messages' && <Announcements title="Mensagens Recebidas" subtitle="Comunicação direta" items={[]} themeColor={currentTheme} userRole={user.role} onDelete={() => {}} userName={user.name} messages={visibleMessages} onReply={handleReplyToMessage} onDeleteMessage={handleDeleteDirectMessage} users={visibleUsers} onSendMessage={handleSendDirectMessage} userGender={user.gender} />}
 
                 {activeTab === 'board' && <Board themeColor={currentTheme} activeBreak={activeBreaks.find(b => b.userId === user.id)} onStartBreak={t => setActiveBreaks(p => [...p, {id: Date.now().toString(), userId: user.id, branchId: user.branchId!, userName: user.name, userAvatar: user.avatar, startTime: t, duration: 3600}])} onEndBreak={() => setActiveBreaks(p => p.filter(b => b.userId !== user.id))} onNotify={triggerNotification} />}
                 
-                {activeTab === 'team' && <TeamManagement users={visibleUsers} currentUserRole={user.role} branches={branches} availableJobTitles={availableJobTitles} onAddUser={(u) => setUsers(p => [...p, {...u, id: Date.now().toString(), avatar: 'NU', themeColor: 'blue'}])} onUpdateUser={(id, d) => setUsers(p => p.map(u => u.id === id ? {...u, ...d} : u))} onDeleteUser={id => setUsers(p => p.filter(u => u.id !== id))} onAddJobTitle={t => setAvailableJobTitles(p => [...p, t])} onEditJobTitle={(o, n) => setAvailableJobTitles(p => p.map(t => t === o ? n : t))} onDeleteJobTitle={t => setAvailableJobTitles(p => p.filter(x => x !== t))} onSendMessage={handleSendDirectMessage} />}
+                {activeTab === 'team' && <TeamManagement users={visibleUsers} currentUserRole={user.role} branches={branches} availableJobTitles={availableJobTitles} onAddUser={(u) => setUsers(p => [...p, {...u, id: Date.now().toString(), avatar: 'NU', themeColor: 'blue'}])} onUpdateUser={(id, d) => setUsers(p => p.map(u => u.id === id ? {...u, ...d} : u))} onDeleteUser={id => {
+                    // Safe Delete User: Remove user AND their related data to prevent orphaned entries
+                    setUsers(p => p.filter(u => u.id !== id));
+                    setDailySchedules(p => p.filter(s => s.userId !== id)); // Remove schedules
+                    setOffRequests(p => p.filter(r => r.userId !== id)); // Remove requests
+                    setActiveBreaks(p => p.filter(b => b.userId !== id)); // Remove active breaks
+                    setDirectMessages(p => p.filter(m => m.userId !== id && m.senderId !== id)); // Remove DMs
+                    triggerNotification("Usuário e dados vinculados removidos.", "sms");
+                }} onAddJobTitle={t => setAvailableJobTitles(p => [...p, t])} onEditJobTitle={(o, n) => setAvailableJobTitles(p => p.map(t => t === o ? n : t))} onDeleteJobTitle={t => setAvailableJobTitles(p => p.filter(x => x !== t))} onSendMessage={handleSendDirectMessage} />}
                 
                 {activeTab === 'settings' && <Settings user={user} currentTheme={currentTheme} onThemeChange={setCurrentTheme} isSundayOffEnabled={isSundayOffEnabled} onToggleSundayOff={() => setIsSundayOffEnabled(!isSundayOffEnabled)} isWeeklyScheduleEnabled={isWeeklyScheduleEnabled} onToggleWeeklySchedule={() => {
                     const newValue = !isWeeklyScheduleEnabled;

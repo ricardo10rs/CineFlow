@@ -22,6 +22,12 @@ export const BranchManagement: React.FC<BranchManagementProps> = ({ branches, on
     }
   };
 
+  const handleDelete = (branch: Branch) => {
+      if (window.confirm(`Tem certeza que deseja excluir a unidade "${branch.name}"? Isso pode afetar escalas e usuários vinculados.`)) {
+          onDeleteBranch(branch.id);
+      }
+  };
+
   return (
     <div className="space-y-8 animate-fade-in">
       <div>
@@ -96,7 +102,7 @@ export const BranchManagement: React.FC<BranchManagementProps> = ({ branches, on
                             <div className="flex items-center space-x-3">
                                 <span className="text-xs font-mono text-slate-300">ID: {branch.id}</span>
                                 <button 
-                                    onClick={() => onDeleteBranch(branch.id)}
+                                    onClick={() => handleDelete(branch)}
                                     className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                                     title="Excluir Unidade"
                                 >

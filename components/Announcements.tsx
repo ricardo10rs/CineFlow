@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { AnnouncementItem, ThemeColor, UserRole, DirectMessage, User } from '../types';
 import { Calendar, Trash2, Clock, UserCircle, CheckCircle2, Layout, AlertCircle, MessageCircle, Send, FileText, Image as ImageIcon, Coffee, Sparkles, Sun, Smile, Plus, X, Paperclip, Search } from 'lucide-react';
@@ -17,7 +18,227 @@ interface AnnouncementsProps {
   // New props for sending new messages
   users?: User[];
   onSendMessage?: (userId: string, message: string, file?: File, durationMinutes?: number) => void;
+  userGender?: string; 
 }
+
+// Internal component for Gender-based Flat Illustrations
+const RelaxedIllustration = ({ gender, themeColor }: { gender?: string, themeColor: ThemeColor }) => {
+    
+    // Helper to map theme names to hex colors for SVG usage
+    const getThemeHex = (shade: number) => {
+        const colors: Record<string, Record<number, string>> = {
+            blue: { 100: '#dbeafe', 200: '#bfdbfe', 300: '#93c5fd', 400: '#60a5fa', 500: '#3b82f6', 600: '#2563eb', 700:'#1d4ed8', 800: '#1e40af', 900: '#1e3a8a' },
+            green: { 100: '#dcfce7', 200: '#bbf7d0', 300: '#86efac', 400: '#4ade80', 500: '#22c55e', 600: '#16a34a', 700:'#15803d', 800: '#166534', 900: '#14532d' },
+            purple: { 100: '#f3e8ff', 200: '#e9d5ff', 300: '#d8b4fe', 400: '#c084fc', 500: '#a855f7', 600: '#9333ea', 700:'#7e22ce', 800: '#6b21a8', 900: '#581c87' },
+            pink: { 100: '#fce7f3', 200: '#fbcfe8', 300: '#f9a8d4', 400: '#f472b6', 500: '#ec4899', 600: '#db2777', 700:'#be185d', 800: '#9d174d', 900: '#831843' },
+            orange: { 100: '#ffedd5', 200: '#fed7aa', 300: '#fdba74', 400: '#fb923c', 500: '#f97316', 600: '#ea580c', 700:'#c2410c', 800: '#9a3412', 900: '#7c2d12' },
+            slate: { 100: '#f1f5f9', 200: '#e2e8f0', 300: '#cbd5e1', 400: '#94a3b8', 500: '#64748b', 600: '#475569', 700:'#334155', 800: '#1e293b', 900: '#0f172a' },
+        };
+        const theme = colors[themeColor] || colors.blue;
+        return theme[shade];
+    };
+
+    // Realistic Skin Tones
+    const skinBaseF = "#F5D0B5"; // Light Warm
+    const skinShadowF = "#E8B99B";
+    const skinBaseM = "#EACBAA"; // Neutral
+    const skinShadowM = "#D6B08C";
+    const hairColor = "#2c2c2c";
+    
+    // FEMALE ILLUSTRATION - Realistic Style (Yoga/Nature)
+    if (gender === 'female') {
+        return (
+             <svg width="340" height="280" viewBox="0 0 340 280" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <linearGradient id={`grad-bg-${themeColor}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={getThemeHex(100)} stopOpacity="0.4" />
+                        <stop offset="100%" stopColor="white" stopOpacity="0" />
+                    </linearGradient>
+                    <linearGradient id={`clothes-${themeColor}`} x1="0" y1="0" x2="1" y2="1">
+                         <stop offset="0%" stopColor={getThemeHex(400)} />
+                         <stop offset="100%" stopColor={getThemeHex(600)} />
+                    </linearGradient>
+                    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+                        <feGaussianBlur in="SourceAlpha" stdDeviation="3" />
+                        <feOffset dx="2" dy="4" result="offsetblur" />
+                        <feComponentTransfer>
+                            <feFuncA type="linear" slope="0.2" />
+                        </feComponentTransfer>
+                        <feMerge>
+                            <feMergeNode />
+                            <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                    </filter>
+                </defs>
+
+                {/* Floor Shadow */}
+                <ellipse cx="170" cy="245" rx="90" ry="10" fill={getThemeHex(900)} opacity="0.1" />
+
+                {/* Background Decor: Realistic Plant Pot Left */}
+                <g transform="translate(40, 140)">
+                     {/* Pot with Theme Accent */}
+                     <path d="M10 80 L 15 100 L 45 100 L 50 80 Z" fill="#9CA3AF" />
+                     <path d="M10 80 L 50 80 L 48 85 L 12 85 Z" fill={getThemeHex(500)} /> {/* Theme Accent Rim */}
+                     {/* Leaves */}
+                     <path d="M30 80 Q 10 40 5 20 Q 25 40 30 80" fill="#15803d" />
+                     <path d="M30 80 Q 50 30 60 10 Q 55 40 30 80" fill="#16a34a" />
+                     <path d="M30 80 Q 15 50 10 30" stroke="#14532d" strokeWidth="0.5" fill="none" />
+                </g>
+
+                {/* Character */}
+                <g transform="translate(110, 50)" filter="url(#softShadow)">
+                    
+                    {/* LEGS (Crossed) - Dark neutral pants to contrast with colorful top */}
+                    <path d="M30 140 C 10 160, 0 190, 60 195 L 80 185" fill="#374151" /> {/* Left Leg Back */}
+                    <path d="M90 140 C 110 160, 120 190, 60 195" fill="#1f2937" /> {/* Right Leg Back */}
+                    
+                    {/* Leg Highlights (Clothing Folds) */}
+                    <path d="M35 150 Q 20 170 50 180" stroke="white" strokeWidth="1" opacity="0.1" fill="none" />
+
+                    {/* TORSO - Theme Color Top */}
+                    <path d="M40 145 L 45 80 C 45 75, 75 75, 75 80 L 80 145 C 80 155, 40 155, 40 145 Z" fill={`url(#clothes-${themeColor})`} />
+                    {/* Clothing Folds */}
+                    <path d="M45 130 Q 60 135 75 128" stroke="black" strokeWidth="1" opacity="0.1" fill="none" />
+
+                    {/* NECK */}
+                    <path d="M53 80 L 53 70 L 67 70 L 67 80" fill={skinBaseF} />
+                    <path d="M53 72 Q 60 76 67 72" fill={skinShadowF} opacity="0.5" /> {/* Neck shadow */}
+
+                    {/* HEAD */}
+                    <path d="M48 45 C 48 30, 72 30, 72 45 C 72 65, 60 72, 48 45" fill={skinBaseF} /> {/* Face Base */}
+                    <ellipse cx="60" cy="45" rx="13" ry="16" fill={skinBaseF} />
+
+                    {/* Facial Features */}
+                    <path d="M54 44 Q 57 42 60 44" stroke="#8B5E3C" strokeWidth="1" fill="none" /> {/* Left Eye Closed */}
+                    <path d="M62 44 Q 65 42 68 44" stroke="#8B5E3C" strokeWidth="1" fill="none" /> {/* Right Eye Closed */}
+                    <path d="M61 48 L 59 52 L 63 52" fill={skinShadowF} opacity="0.6" /> {/* Nose */}
+                    <path d="M58 58 Q 61 60 64 58" stroke="#D97757" strokeWidth="1.5" strokeLinecap="round" /> {/* Mouth */}
+                    <path d="M53 40 Q 57 38 60 39" stroke="#5C4033" strokeWidth="1" fill="none" opacity="0.8"/> {/* Eyebrow L */}
+                    <path d="M62 39 Q 65 38 69 40" stroke="#5C4033" strokeWidth="1" fill="none" opacity="0.8"/> {/* Eyebrow R */}
+
+                    {/* HAIR */}
+                    <path d="M60 20 C 40 20, 35 40, 35 55 C 35 60, 40 65, 45 60" fill={hairColor} /> {/* Back Hair */}
+                    <path d="M60 20 C 70 20, 85 30, 85 55 C 85 65, 80 60, 75 55" fill={hairColor} /> {/* Back Hair R */}
+                    <path d="M45 28 C 45 28, 45 40, 40 50" fill="none" stroke={hairColor} strokeWidth="8" /> {/* Side Bang L */}
+                    <path d="M75 28 C 75 28, 75 40, 80 50" fill="none" stroke={hairColor} strokeWidth="8" /> {/* Side Bang R */}
+                    <circle cx="60" cy="18" r="10" fill={hairColor} /> {/* Bun */}
+                    <path d="M55 20 Q 60 15 65 20" stroke="#4B5563" strokeWidth="1" opacity="0.5" fill="none"/> {/* Hair detail */}
+
+                    {/* ARMS */}
+                    <path d="M45 85 Q 30 110 35 130" stroke={skinBaseF} strokeWidth="8" strokeLinecap="round" fill="none" /> 
+                    <path d="M75 85 Q 90 110 85 130" stroke={skinBaseF} strokeWidth="8" strokeLinecap="round" fill="none" /> 
+
+                    {/* HANDS (Resting on knees) */}
+                    <circle cx="35" cy="130" r="5" fill={skinBaseF} />
+                    <circle cx="85" cy="130" r="5" fill={skinBaseF} />
+                </g>
+
+                 {/* Floating Tablet/Book with Theme Glow */}
+                 <g transform="translate(230, 160) rotate(10)" className="animate-pulse" style={{ animationDuration: '4s' }}>
+                    <rect x="0" y="0" width="40" height="50" rx="3" fill="#f3f4f6" stroke={getThemeHex(300)} strokeWidth="1.5" />
+                    <rect x="5" y="5" width="30" height="40" rx="1" fill="white" />
+                    <rect x="8" y="10" width="24" height="2" fill={getThemeHex(200)} />
+                    <rect x="8" y="15" width="20" height="2" fill={getThemeHex(200)} />
+                    <rect x="8" y="20" width="24" height="2" fill={getThemeHex(200)} />
+                 </g>
+            </svg>
+        );
+    }
+    
+    // MALE ILLUSTRATION - Realistic Style (Casual/Beanbag)
+    return (
+        <svg width="340" height="280" viewBox="0 0 340 280" fill="none" xmlns="http://www.w3.org/2000/svg">
+             <defs>
+                <linearGradient id={`grad-m-${themeColor}`} x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor={getThemeHex(500)} />
+                    <stop offset="100%" stopColor={getThemeHex(700)} />
+                </linearGradient>
+                <filter id="shadowM" x="-20%" y="-20%" width="140%" height="140%">
+                    <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor={getThemeHex(900)} floodOpacity="0.2" />
+                </filter>
+            </defs>
+
+             {/* Floor Shadow */}
+             <ellipse cx="150" cy="250" rx="100" ry="12" fill={getThemeHex(900)} opacity="0.1" />
+
+             {/* BEANBAG CHAIR */}
+             <path d="M60 160 C 50 230, 200 250, 230 180 C 240 130, 140 120, 60 160" fill="#475569" filter="url(#shadowM)" />
+             <path d="M70 165 C 65 220, 200 230, 220 180 C 220 140, 120 140, 70 165" fill="#334155" /> {/* Inner shading */}
+             <path d="M80 170 Q 150 150 210 180" stroke="#1e293b" strokeWidth="2" fill="none" opacity="0.2" /> {/* Seam */}
+
+             {/* CHARACTER GROUP */}
+             <g transform="translate(10, 20)">
+                 
+                 {/* Right Leg (Behind) */}
+                 <path d="M150 170 L 190 200 L 170 235" stroke="#1e293b" strokeWidth="22" strokeLinecap="round" fill="none" />
+                 
+                 {/* Left Leg (Front) */}
+                 <path d="M110 170 L 130 200 L 170 205" stroke="#334155" strokeWidth="22" strokeLinecap="round" fill="none" />
+                 
+                 {/* Shoes (Sneakers) with Theme Accent */}
+                 <g transform="translate(160, 225) rotate(10)">
+                    <path d="M0 0 L 0 10 L 25 10 Q 30 5 25 0 Z" fill="white" />
+                    <path d="M0 10 L 25 10" stroke={getThemeHex(600)} strokeWidth="4" /> {/* Sole Theme Color */}
+                    <path d="M5 0 L 15 0" stroke="#cbd5e1" strokeWidth="2" /> {/* Laces */}
+                 </g>
+                 <g transform="translate(155, 195) rotate(5)">
+                    <path d="M0 0 L 0 10 L 25 10 Q 30 5 25 0 Z" fill="#f8fafc" />
+                    <path d="M0 10 L 25 10" stroke={getThemeHex(600)} strokeWidth="4" />
+                 </g>
+
+                 {/* TORSO (Hoodie) - Uses Theme Color */}
+                 <path d="M95 160 L 90 100 C 90 90, 160 90, 160 100 L 155 160 L 95 160 Z" fill={`url(#grad-m-${themeColor})`} />
+                 <path d="M125 100 L 125 140" stroke="rgba(0,0,0,0.2)" strokeWidth="2" /> {/* Zipper */}
+                 <path d="M110 140 Q 125 145 140 140" stroke="rgba(0,0,0,0.1)" strokeWidth="2" fill="none" /> {/* Pocket fold */}
+
+                 {/* NECK */}
+                 <path d="M115 100 L 115 90 L 135 90 L 135 100" fill={skinBaseM} />
+                 
+                 {/* HEAD */}
+                 <ellipse cx="125" cy="80" rx="20" ry="24" fill={skinBaseM} />
+                 <path d="M125 104 C 115 104, 110 100, 125 100 C 140 100, 135 104, 125 104" fill={skinShadowM} opacity="0.3" /> {/* Neck shadow */}
+
+                 {/* Facial Features */}
+                 <path d="M126 84 L 122 88 L 128 88" fill={skinShadowM} /> {/* Nose */}
+                 <path d="M120 94 Q 125 96 130 94" stroke="#8B5E3C" strokeWidth="1.5" strokeLinecap="round" /> {/* Smile */}
+                 <path d="M115 80 L 135 80" stroke="#374151" strokeWidth="1.5" /> {/* Glasses Bridge */}
+                 <circle cx="118" cy="80" r="6" stroke="#374151" strokeWidth="1.5" fill="rgba(255,255,255,0.2)" />
+                 <circle cx="132" cy="80" r="6" stroke="#374151" strokeWidth="1.5" fill="rgba(255,255,255,0.2)" />
+                 <path d="M115 74 Q 118 72 122 74" stroke="#4B5563" strokeWidth="1.5" fill="none" /> {/* Eyebrow */}
+                 <path d="M128 74 Q 132 72 135 74" stroke="#4B5563" strokeWidth="1.5" fill="none" /> {/* Eyebrow */}
+                 
+                 {/* Beard/Stubble */}
+                 <path d="M110 85 Q 125 105 140 85" fill="#D6B08C" opacity="0.3" />
+
+                 {/* HAIR (Modern Cut) */}
+                 <path d="M105 70 C 105 60, 115 50, 125 50 C 140 50, 145 60, 145 75 L 145 80 L 142 80 L 142 70 C 142 70, 135 60, 125 60 C 115 60, 108 70, 108 80 L 105 80 Z" fill={hairColor} />
+                 <path d="M125 50 Q 135 45 140 55" fill={hairColor} /> {/* Tuft */}
+
+                 {/* ARMS (Holding Device) */}
+                 <path d="M100 110 Q 80 130 110 145" stroke={skinBaseM} strokeWidth="12" strokeLinecap="round" fill="none" /> 
+                 <path d="M150 110 Q 170 130 140 145" stroke={skinBaseM} strokeWidth="12" strokeLinecap="round" fill="none" />
+
+                 {/* PHONE */}
+                 <rect x="115" y="135" width="20" height="30" rx="2" fill="#1e293b" transform="rotate(-10 125 150)" />
+                 {/* Screen glow with theme color */}
+                 <rect x="117" y="137" width="16" height="24" rx="1" fill={getThemeHex(400)} transform="rotate(-10 125 150)" />
+                 <circle cx="125" cy="162" r="1" fill="#fff" transform="rotate(-10 125 150)" opacity="0.5" />
+             </g>
+
+             {/* COFFEE CUP on Floor */}
+             <g transform="translate(260, 230)">
+                <ellipse cx="12" cy="18" rx="8" ry="3" fill="#000" opacity="0.2" />
+                <path d="M4 18 L 6 0 L 18 0 L 20 18 Z" fill="white" stroke="#e2e8f0" />
+                <path d="M6 0 L 18 0" stroke="#e2e8f0" strokeWidth="1" />
+                {/* Sleeve with Theme Color */}
+                <path d="M5 8 L 19 8 L 18 14 L 6 14 Z" fill={getThemeHex(600)} />
+                {/* Steam */}
+                <path d="M8 -5 Q 12 -10 8 -15" stroke={getThemeHex(300)} strokeWidth="2" strokeLinecap="round" opacity="0.4" />
+                <path d="M16 -8 Q 20 -14 16 -20" stroke={getThemeHex(300)} strokeWidth="2" strokeLinecap="round" opacity="0.4" />
+             </g>
+        </svg>
+    );
+};
 
 export const Announcements: React.FC<AnnouncementsProps> = ({ 
   items, 
@@ -28,11 +249,12 @@ export const Announcements: React.FC<AnnouncementsProps> = ({
   messages = [], 
   onReply, 
   onDeleteMessage,
-  onMarkAsRead,
+  onMarkAsRead, 
   title = "Mural de Avisos",
   subtitle = "Atualizações e comunicados importantes da empresa.",
   users = [],
-  onSendMessage
+  onSendMessage,
+  userGender = 'female'
 }) => {
   const firstName = userName.split(' ')[0];
   const [replyText, setReplyText] = useState<Record<string, string>>({});
@@ -399,38 +621,24 @@ export const Announcements: React.FC<AnnouncementsProps> = ({
         {items.length === 0 && messages.length === 0 && (
           <div className={`
             relative overflow-hidden rounded-3xl p-12 text-center min-h-[450px] flex flex-col items-center justify-center
-            bg-gradient-to-br from-white via-slate-50 to-${themeColor}-50/50 border border-slate-200/60 shadow-xl shadow-slate-200/40
+            bg-white border border-slate-200 shadow-sm
             animate-fade-in group
           `}>
              {/* Dynamic Background Shapes */}
-             <div className={`absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-${themeColor}-200/20 to-transparent rounded-full blur-3xl -translate-y-1/2 translate-x-1/2`}></div>
-             <div className={`absolute bottom-0 left-0 w-80 h-80 bg-gradient-to-tr from-${themeColor}-300/10 to-transparent rounded-full blur-3xl translate-y-1/2 -translate-x-1/3`}></div>
+             <div className={`absolute top-0 right-0 w-80 h-80 bg-gradient-to-br from-${themeColor}-50 to-transparent rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 opacity-60`}></div>
+             <div className={`absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-${themeColor}-100 to-transparent rounded-full blur-3xl translate-y-1/2 -translate-x-1/3 opacity-40`}></div>
              
              {/* Main Illustration Container */}
-             <div className="relative z-10 mb-8 transform transition-transform duration-700 group-hover:scale-105">
-                 <div className={`
-                    w-32 h-32 rounded-[2rem] bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] 
-                    flex items-center justify-center relative rotate-3 group-hover:rotate-6 transition-all duration-500
-                    border border-white/50 backdrop-blur-sm
-                 `}>
+             <div className="relative z-10 mb-8 transform transition-transform duration-700 group-hover:scale-[1.02]">
+                 <div className="flex items-center justify-center">
                     {title === 'Mensagens Recebidas' ? (
-                       <MessageCircle size={56} className={`text-${themeColor}-400 drop-shadow-sm`} strokeWidth={1.5} />
-                    ) : (
-                       <div className="relative">
-                          <Coffee size={56} className={`text-${themeColor}-500 drop-shadow-sm`} strokeWidth={1.5} />
-                          <div className="absolute -top-2 -right-2">
-                             <Sparkles size={24} className="text-yellow-400 animate-pulse" fill="currentColor" />
-                          </div>
+                       <div className="bg-slate-50 p-6 rounded-full border border-slate-100">
+                           <MessageCircle size={64} className={`text-${themeColor}-400 drop-shadow-sm`} strokeWidth={1.5} />
                        </div>
+                    ) : (
+                       // CUSTOM ILLUSTRATION BASED ON GENDER
+                       <RelaxedIllustration gender={userGender} themeColor={themeColor} />
                     )}
-                 </div>
-                 
-                 {/* Floating Decorative Elements - Slowed down bounce for 'subtle' effect */}
-                 <div className={`absolute -right-4 top-0 bg-white p-2 rounded-xl shadow-sm rotate-12 animate-bounce`} style={{ animationDuration: '3s' }}>
-                    <Sun size={20} className="text-orange-400" fill="currentColor" />
-                 </div>
-                 <div className={`absolute -left-2 bottom-0 bg-white p-2 rounded-full shadow-sm -rotate-6 animate-bounce`} style={{ animationDuration: '4s', animationDelay: '1s' }}>
-                    <Smile size={20} className={`text-${themeColor}-400`} />
                  </div>
              </div>
              

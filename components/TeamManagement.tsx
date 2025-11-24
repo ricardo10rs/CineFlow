@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { User, UserRole, JobTitle, Branch } from '../types';
-import { UserPlus, Trash2, User as UserIcon, Lock, Mail, Phone, Briefcase, Filter, ArrowUpDown, MessageSquare, X, Send, Plus, Pencil, Building, Paperclip, FileText, Image as ImageIcon, Settings, Check, EyeOff, Clock } from 'lucide-react';
+import { UserPlus, Trash2, User as UserIcon, Lock, Mail, Phone, Briefcase, Filter, ArrowUpDown, MessageSquare, X, Send, Plus, Pencil, Building, Paperclip, FileText, Image as ImageIcon, Settings, Check, EyeOff, Clock, Loader2, Smile } from 'lucide-react';
 
 interface TeamManagementProps {
   users: User[];
@@ -39,6 +39,10 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
   const [role, setRole] = useState<UserRole>('employee');
   const [branchId, setBranchId] = useState<string>(branches[0]?.id || '');
   const [hideWeeklySchedule, setHideWeeklySchedule] = useState(false); // New state
+  const [gender, setGender] = useState<'male' | 'female'>('female'); // New state
+
+  // Loading State
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Dynamic Job Title Logic
   const [isAddingJob, setIsAddingJob] = useState(false);
@@ -92,47 +96,54 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (editingUser) {
-        // Construct the update object carefully to avoid overwriting branchId with undefined
-        const updateData: Partial<User> = {
-            name,
-            email,
-            phone,
-            jobTitle,
-            role,
-            hideWeeklySchedule
-        };
+    setIsSubmitting(true);
 
-        // Only update password if provided
-        if (password) {
-            updateData.password = password;
+    // Simulate async operation for better UX feedback
+    setTimeout(() => {
+        if (editingUser) {
+            // Construct the update object carefully to avoid overwriting branchId with undefined
+            const updateData: Partial<User> = {
+                name,
+                email,
+                phone,
+                jobTitle,
+                role,
+                hideWeeklySchedule,
+                gender
+            };
+
+            // Only update password if provided
+            if (password) {
+                updateData.password = password;
+            }
+
+            // Only update branchId if super_admin or if user is being moved
+            // For regular admins, branchId remains implicitly the same as the admin
+            if (currentUserRole === 'super_admin') {
+                updateData.branchId = branchId;
+            }
+
+            onUpdateUser(editingUser.id, updateData);
+            setEditingUser(null);
+        } else {
+            onAddUser({ 
+                name, 
+                email, 
+                password, 
+                role,
+                phone,
+                jobTitle,
+                branchId: currentUserRole === 'super_admin' ? branchId : undefined, // Admin uses their own branch automatically in App.tsx
+                notificationPrefs: { email: true, sms: true },
+                hideWeeklySchedule,
+                gender
+            });
         }
-
-        // Only update branchId if super_admin or if user is being moved
-        // For regular admins, branchId remains implicitly the same as the admin
-        if (currentUserRole === 'super_admin') {
-            updateData.branchId = branchId;
-        }
-
-        onUpdateUser(editingUser.id, updateData);
-        setEditingUser(null);
-    } else {
-        onAddUser({ 
-            name, 
-            email, 
-            password, 
-            role,
-            phone,
-            jobTitle,
-            branchId: currentUserRole === 'super_admin' ? branchId : undefined, // Admin uses their own branch automatically in App.tsx
-            notificationPrefs: { email: true, sms: true },
-            hideWeeklySchedule
-        });
-    }
-    
-    // Reset form
-    resetForm();
+        
+        // Reset form
+        resetForm();
+        setIsSubmitting(false);
+    }, 600);
   };
 
   const resetForm = () => {
@@ -143,7 +154,9 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
     setJobTitle('Recepcionista');
     setRole('employee');
     setHideWeeklySchedule(false);
+    setGender('female');
     setEditingUser(null);
+    setIsSubmitting(false);
     // Scroll to top of list if needed or just reset state
   };
 
@@ -155,6 +168,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
       setJobTitle(user.jobTitle || 'Recepcionista');
       setRole(user.role);
       setHideWeeklySchedule(user.hideWeeklySchedule || false);
+      setGender(user.gender || 'female');
       if (user.branchId) setBranchId(user.branchId);
       setPassword(''); // Reset password field
       
@@ -163,7 +177,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
   };
 
   const handleDeleteClick = (userId: string, userName: string) => {
-      if (onDeleteUser && window.confirm(`Tem certeza que deseja remover o usuário ${userName}?`)) {
+      if (onDeleteUser && window.confirm(`Tem certeza que deseja remover o usuário ${userName}? Esta ação também removerá escalas e solicitações associadas.`)) {
           onDeleteUser(userId);
       }
   };
@@ -458,6 +472,22 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
                 </div>
               </div>
 
+              {/* Gender Selection */}
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Gênero</label>
+                <div className="relative">
+                  <Smile size={16} className="absolute left-3 top-3 text-slate-400" />
+                  <select
+                    value={gender}
+                    onChange={(e) => setGender(e.target.value as 'male' | 'female')}
+                    className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 transition-all outline-none text-sm text-slate-700 appearance-none"
+                  >
+                    <option value="female">Feminino</option>
+                    <option value="male">Masculino</option>
+                  </select>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Cargo / Função</label>
                 <div className="relative flex gap-2">
@@ -569,9 +599,17 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
 
               <button
                 type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-500/30 transition-all active:scale-95"
+                disabled={isSubmitting}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-500/30 transition-all active:scale-95 flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                {editingUser ? 'Salvar Alterações' : 'Cadastrar Usuário'}
+                {isSubmitting ? (
+                    <>
+                        <Loader2 className="animate-spin mr-2" size={20} />
+                        Salvando...
+                    </>
+                ) : (
+                    editingUser ? 'Salvar Alterações' : 'Cadastrar Usuário'
+                )}
               </button>
             </form>
           </div>
@@ -650,6 +688,8 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
                             <p className="text-xs text-slate-500">{u.email}</p>
                             <span className="text-slate-300 text-[10px] hidden sm:inline">•</span>
                             <p className="text-xs text-slate-500 font-medium">{u.jobTitle || 'Sem cargo'}</p>
+                             <span className="text-slate-300 text-[10px] hidden sm:inline">•</span>
+                             <p className="text-[10px] text-slate-400 capitalize">{u.gender === 'male' ? 'Masc.' : 'Fem.'}</p>
                         </div>
                       </div>
                     </div>
