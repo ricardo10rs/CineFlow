@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { WorkShift, ThemeColor, UserRole, OffRequest, User, DailySchedule } from '../types';
-import { Clock, Pencil, X, Save, CalendarPlus, CheckCircle, XCircle, CalendarDays, ChevronLeft, ChevronRight, User as UserIcon, Trash2, Check, Eye, EyeOff, Lock, Palmtree, Clock as ClockOff, Sun, MousePointerClick, MoveHorizontal } from 'lucide-react';
+import { Clock, Pencil, X, Save, CalendarPlus, CheckCircle, XCircle, CalendarDays, ChevronLeft, ChevronRight, User as UserIcon, Trash2, Check, Eye, EyeOff, Lock, Palmtree, Clock as ClockOff, Sun, MoveHorizontal, Calendar as CalendarIcon, RefreshCw } from 'lucide-react';
 
 interface ScheduleProps {
   shifts: WorkShift[];
@@ -21,6 +21,7 @@ interface ScheduleProps {
   onTogglePublish: (monthKey: string) => void;
   onToggleUserWeeklySchedule?: (userId: string) => void;
   onAssignVacation?: (userId: string, startDay: number, currentMonth: Date) => void; // New Prop
+  onUpdateUser?: (userId: string, data: Partial<User>) => void; // New prop for vacation
   isSundayOffEnabled: boolean;
   isWeeklyScheduleEnabled?: boolean;
 }
@@ -43,6 +44,7 @@ export const Schedule: React.FC<ScheduleProps> = ({
   onTogglePublish,
   onToggleUserWeeklySchedule,
   onAssignVacation,
+  onUpdateUser,
   isSundayOffEnabled,
   isWeeklyScheduleEnabled = true
 }) => {
@@ -55,12 +57,24 @@ export const Schedule: React.FC<ScheduleProps> = ({
   const [selectedUserId, setSelectedUserId] = useState<string>(userId);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [isVacationMode, setIsVacationMode] = useState(false); // New State for interactive selection
+  
+  // Vacation Date Confirmation State
+  const [tempVacationDate, setTempVacationDate] = useState('');
 
   useEffect(() => {
     if (userRole !== 'admin') {
         setSelectedUserId(userId);
     }
   }, [userRole, userId]);
+
+  const selectedUser = users.find(u => u.id === selectedUserId);
+
+  // Sync temp vacation date when selected user changes
+  useEffect(() => {
+      if (selectedUser) {
+          setTempVacationDate(selectedUser.vacationReturnDate || '');
+      }
+  }, [selectedUser]);
 
   const handleEditClick = () => {
     setTempShifts(JSON.parse(JSON.stringify(shifts)));
@@ -298,8 +312,6 @@ export const Schedule: React.FC<ScheduleProps> = ({
       }
       return true;
   }).sort((a, b) => Number(b.id) - Number(a.id)); 
-  
-  const selectedUser = users.find(u => u.id === selectedUserId);
 
   const currentMonthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
   const isMonthPublished = publishedMonths.includes(`${selectedUserId}:${currentMonthKey}`);
@@ -327,6 +339,26 @@ export const Schedule: React.FC<ScheduleProps> = ({
   const currentUserObj = users.find(u => u.id === userId);
   const isHiddenForUser = currentUserObj?.hideWeeklySchedule || false;
   const showWeeklySchedule = userRole === 'admin' || (isWeeklyScheduleEnabled && !isHiddenForUser);
+
+  // Handle Confirm Vacation
+  const handleConfirmVacation = () => {
+      if (onUpdateUser && selectedUser) {
+          if (!tempVacationDate) {
+             alert("Por favor, selecione uma data de retorno.");
+             return;
+          }
+          onUpdateUser(selectedUserId, { vacationReturnDate: tempVacationDate });
+      }
+  };
+
+  const handleClearVacation = () => {
+      if (onUpdateUser && selectedUser) {
+          if(window.confirm(`Desativar o Modo Férias para ${selectedUser.name}?`)) {
+              setTempVacationDate('');
+              onUpdateUser(selectedUserId, { vacationReturnDate: undefined });
+          }
+      }
+  };
 
   return (
     <div className="space-y-8 animate-fade-in relative">
@@ -525,7 +557,7 @@ export const Schedule: React.FC<ScheduleProps> = ({
 
       {/* --- MONTHLY VIEW (INDIVIDUAL) --- */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-             <div className="flex flex-col lg:flex-row justify-between items-center mb-6 gap-4">
+             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
                 <div className="flex items-center space-x-4">
                     <h2 className="text-lg font-bold text-slate-800 flex items-center">
                         <CalendarDays className={`mr-2 text-${themeColor}-600`} size={20} />
@@ -605,6 +637,49 @@ export const Schedule: React.FC<ScheduleProps> = ({
                     </div>
                 </div>
              </div>
+
+             {/* Vacation Mode Controls (Admin Only) */}
+             {userRole === 'admin' && selectedUser && (
+                 <div className="bg-orange-50 border border-orange-100 rounded-xl p-3 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                     <div className="flex items-center gap-3">
+                         <div className="bg-white p-2 rounded-lg shadow-sm text-orange-500">
+                             <Palmtree size={18} />
+                         </div>
+                         <div>
+                             <h4 className="text-sm font-bold text-slate-800">Modo Férias</h4>
+                             <p className="text-xs text-slate-500">Defina a data de retorno para ativar o painel de férias.</p>
+                         </div>
+                     </div>
+                     <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <div className="relative flex-1 sm:flex-none">
+                            <CalendarIcon size={14} className="absolute left-3 top-2.5 text-orange-400" />
+                            <input 
+                                type="date"
+                                value={tempVacationDate}
+                                onChange={(e) => setTempVacationDate(e.target.value)}
+                                className="pl-9 pr-3 py-1.5 bg-white border border-orange-200 rounded-lg text-sm text-slate-700 focus:ring-2 focus:ring-orange-400 outline-none w-full"
+                            />
+                        </div>
+                        <button 
+                            onClick={handleConfirmVacation}
+                            className="bg-orange-500 hover:bg-orange-600 text-white p-1.5 rounded-lg transition-colors shadow-sm flex items-center gap-1 px-3"
+                            title="Confirmar Data"
+                        >
+                            <Check size={16} />
+                            <span className="text-xs font-bold">Confirmar</span>
+                        </button>
+                         {selectedUser.vacationReturnDate && (
+                            <button 
+                                onClick={handleClearVacation}
+                                className="bg-white border border-slate-200 hover:bg-red-50 hover:text-red-500 text-slate-400 p-1.5 rounded-lg transition-colors"
+                                title="Remover Férias"
+                            >
+                                <Trash2 size={16} />
+                            </button>
+                        )}
+                     </div>
+                 </div>
+             )}
 
              {!canViewCalendar ? (
                  <div className="flex flex-col items-center justify-center py-16 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">

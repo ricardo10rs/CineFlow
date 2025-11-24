@@ -34,6 +34,7 @@ export interface User {
   jobTitle?: JobTitle;
   notificationPrefs?: NotificationPreferences;
   hideWeeklySchedule?: boolean; // Nova propriedade para ocultar escala individualmente
+  vacationReturnDate?: string; // NEW: Data de retorno das férias (YYYY-MM-DD)
 }
 
 export interface AIAnalysis {
@@ -163,4 +164,14 @@ export interface HolidayEvent {
   type: string;
   color: 'green' | 'orange' | 'yellow' | 'blue' | 'purple' | 'red';
   description?: string;
+}
+
+export interface VacationSchedule {
+  id: string;
+  userId: string;
+  userName: string;
+  userAvatar?: string;
+  startDate: string; // YYYY-MM-DD
+  returnDate: string; // YYYY-MM-DD
+  status: 'pending' | 'active' | 'completed';
 }

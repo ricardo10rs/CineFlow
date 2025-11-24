@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { User, UserRole, JobTitle, Branch } from '../types';
-import { UserPlus, Trash2, User as UserIcon, Lock, Mail, Phone, Briefcase, Filter, ArrowUpDown, MessageSquare, X, Send, Plus, Pencil, Building, Paperclip, FileText, Image as ImageIcon, Settings, Check, Save, EyeOff, Clock } from 'lucide-react';
+import { UserPlus, Trash2, User as UserIcon, Lock, Mail, Phone, Briefcase, Filter, ArrowUpDown, MessageSquare, X, Send, Plus, Pencil, Building, Paperclip, FileText, Image as ImageIcon, Settings, Check, EyeOff, Clock } from 'lucide-react';
 
 interface TeamManagementProps {
   users: User[];
@@ -126,7 +127,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
             jobTitle,
             branchId: currentUserRole === 'super_admin' ? branchId : undefined, // Admin uses their own branch automatically in App.tsx
             notificationPrefs: { email: true, sms: true },
-            hideWeeklySchedule // Set initial hidden status
+            hideWeeklySchedule
         });
     }
     
@@ -549,19 +550,21 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center space-x-2 pt-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
-                    <input
-                        type="checkbox"
-                        id="hideSchedule"
-                        checked={hideWeeklySchedule}
-                        onChange={(e) => setHideWeeklySchedule(e.target.checked)}
-                        className="h-4 w-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
-                    />
-                    <label htmlFor="hideSchedule" className="text-xs text-slate-600 cursor-pointer select-none flex items-center flex-1">
-                         <EyeOff size={14} className="mr-2 text-slate-400" />
-                         <span>Ocultar Escala Semanal</span>
-                         <span className="ml-1 text-slate-400 text-[10px]">(Ex: Férias)</span>
-                    </label>
+              <div className="space-y-3 pt-2">
+                 {/* HIDE SCHEDULE */}
+                 <div className="flex items-center space-x-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                        <input
+                            type="checkbox"
+                            id="hideSchedule"
+                            checked={hideWeeklySchedule}
+                            onChange={(e) => setHideWeeklySchedule(e.target.checked)}
+                            className="h-4 w-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
+                        />
+                        <label htmlFor="hideSchedule" className="text-xs text-slate-600 cursor-pointer select-none flex items-center flex-1">
+                            <EyeOff size={14} className="mr-2 text-slate-400" />
+                            <span>Ocultar Escala Semanal</span>
+                        </label>
+                 </div>
               </div>
 
               <button
@@ -639,7 +642,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
                             )}
                              {u.hideWeeklySchedule && (
                                 <span title="Escala Oculta" className="flex">
-                                    <EyeOff size={14} className="text-orange-400" />
+                                    <EyeOff size={14} className="text-slate-400" />
                                 </span>
                             )}
                         </div>

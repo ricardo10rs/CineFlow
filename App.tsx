@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Announcements } from './components/Announcements';
@@ -10,7 +11,9 @@ import { BranchManagement } from './components/BranchManagement';
 import { Board } from './components/Board';
 import { BreakMonitor } from './components/BreakMonitor';
 import { HolidayCalendar } from './components/HolidayCalendar';
-import { AppItem, AnnouncementItem, ContentType, WorkShift, User, ThemeColor, OffRequest, Notification, DailySchedule, DirectMessage, Branch, BreakSession, Reply, HolidayEvent } from './types';
+import { VacationMode } from './components/VacationMode';
+import { ScheduledVacations } from './components/ScheduledVacations';
+import { AppItem, AnnouncementItem, ContentType, WorkShift, User, ThemeColor, OffRequest, Notification, DailySchedule, DirectMessage, Branch, BreakSession, Reply, HolidayEvent, VacationSchedule } from './types';
 import { Plus, Bell, Menu, Mail, Smartphone } from 'lucide-react';
 
 // Initial Data with Branch IDs
@@ -147,6 +150,9 @@ export default function App() {
   const [holidays, setHolidays] = useState<HolidayEvent[]>([]);
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
 
+  // Vacation Schedule State
+  const [vacationSchedules, setVacationSchedules] = useState<VacationSchedule[]>([]);
+
   // --- LOAD PREFERENCES ---
   useEffect(() => {
     const savedSunday = localStorage.getItem('cineflow_sunday_off');
@@ -166,6 +172,11 @@ export default function App() {
       const defaultHolidays = generateBrazilianHolidays(new Date().getFullYear());
       setHolidays(defaultHolidays);
     }
+
+    const savedSchedules = localStorage.getItem('cineflow_vacation_schedules');
+    if (savedSchedules) {
+        setVacationSchedules(JSON.parse(savedSchedules));
+    }
   }, []);
 
   // --- SAVE HOLIDAYS ---
@@ -174,6 +185,11 @@ export default function App() {
         localStorage.setItem('cineflow_holidays_db', JSON.stringify(holidays));
     }
   }, [holidays]);
+
+  // --- SAVE VACATION SCHEDULES ---
+  useEffect(() => {
+      localStorage.setItem('cineflow_vacation_schedules', JSON.stringify(vacationSchedules));
+  }, [vacationSchedules]);
 
   const handleYearChange = (year: number) => {
       setCurrentYear(year);
@@ -185,6 +201,54 @@ export default function App() {
           setHolidays(prev => [...prev, ...newHolidays]);
       }
   };
+
+  // --- VACATION SCHEDULER AUTOMATION ---
+  useEffect(() => {
+    // Check daily (or on component mount) if any schedule needs activation
+    const checkSchedules = () => {
+        const todayStr = new Date().toISOString().split('T')[0];
+        
+        let usersUpdated = false;
+        let schedulesUpdated = false;
+        const newUsers = [...users];
+        const newSchedules = [...vacationSchedules];
+
+        newSchedules.forEach((schedule, index) => {
+            // Activate if start date is today or passed, and status is pending
+            if (schedule.status === 'pending' && schedule.startDate <= todayStr) {
+                // Find user and set vacation return date
+                const userIndex = newUsers.findIndex(u => u.id === schedule.userId);
+                if (userIndex !== -1) {
+                    newUsers[userIndex] = {
+                        ...newUsers[userIndex],
+                        vacationReturnDate: schedule.returnDate
+                    };
+                    usersUpdated = true;
+                    
+                    // Mark schedule as active
+                    newSchedules[index] = { ...schedule, status: 'active' };
+                    schedulesUpdated = true;
+                    
+                    // Optional: notify admin?
+                    // console.log(`Activated vacation for ${schedule.userName}`);
+                }
+            }
+            
+            // Mark as completed if return date passed
+            if (schedule.status === 'active' && schedule.returnDate <= todayStr) {
+                 newSchedules[index] = { ...schedule, status: 'completed' };
+                 schedulesUpdated = true;
+            }
+        });
+
+        if (usersUpdated) setUsers(newUsers);
+        if (schedulesUpdated) setVacationSchedules(newSchedules);
+    };
+
+    checkSchedules();
+    const timer = setInterval(checkSchedules, 60000 * 60); // Check every hour
+    return () => clearInterval(timer);
+  }, [vacationSchedules, users]);
 
   // --- CLEANUP ---
   useEffect(() => {
@@ -228,6 +292,7 @@ export default function App() {
         const todayStr = today.toISOString().split('T')[0];
         const yesterdayStr = yesterday.toISOString().split('T')[0];
         
+        // CHECK 1: Calendar based return (Scheduled vacation ending)
         const scheduleToday = dailySchedules.find(s => s.userId === user.id && s.date === todayStr);
         const scheduleYesterday = dailySchedules.find(s => s.userId === user.id && s.date === yesterdayStr);
 
@@ -245,6 +310,21 @@ export default function App() {
              if (!hasNotified) {
                  triggerNotification('🎉 Bem-vindo de volta! Sua escala semanal está disponível novamente.', 'sms');
              }
+        }
+
+        // CHECK 2: Vacation Mode Date Expiration (For the specific return date panel)
+        if (user.vacationReturnDate) {
+            const returnDate = new Date(user.vacationReturnDate + 'T00:00:00'); // Ensure time doesn't shift date
+            // If today is equal or greater than return date, disable vacation mode
+            if (today >= returnDate) {
+                 // Clear the vacation date
+                 const updatedUser = { ...user, vacationReturnDate: undefined, hideWeeklySchedule: false };
+                 setUser(updatedUser);
+                 setUsers(prev => prev.map(u => u.id === user.id ? { ...u, vacationReturnDate: undefined, hideWeeklySchedule: false } : u));
+                 
+                 // Notify
+                 triggerNotification('🎉 Suas férias terminaram. Bem-vindo de volta!', 'sms');
+            }
         }
     }
   }, [user, dailySchedules]);
@@ -276,6 +356,9 @@ export default function App() {
   const visibleRequests = user?.role === 'super_admin' ? offRequests : offRequests.filter(r => r.branchId === currentBranchId);
   const visibleBreaks = user?.role === 'super_admin' ? activeBreaks : activeBreaks.filter(b => b.branchId === currentBranchId);
   const visibleBreakHistory = user?.role === 'super_admin' ? breakHistory : breakHistory.filter(b => b.branchId === currentBranchId);
+  
+  // Filter vacation schedules for visible users
+  const visibleVacationSchedules = vacationSchedules.filter(s => visibleUsers.some(u => u.id === s.userId));
 
   const announcements = visibleItems.filter(i => {
     if (i.type !== ContentType.ANNOUNCEMENT) return false;
@@ -467,6 +550,30 @@ export default function App() {
     triggerNotification('Feriado removido.', 'sms');
   };
 
+  // --- VACATION SCHEDULE ACTIONS ---
+  const handleAddVacationSchedule = (userId: string, startDate: string, returnDate: string) => {
+      const userObj = users.find(u => u.id === userId);
+      if (!userObj) return;
+
+      const newSchedule: VacationSchedule = {
+          id: Date.now().toString(),
+          userId,
+          userName: userObj.name,
+          userAvatar: userObj.avatar,
+          startDate,
+          returnDate,
+          status: 'pending'
+      };
+
+      setVacationSchedules(prev => [...prev, newSchedule]);
+      triggerNotification('Férias agendadas com sucesso.', 'sms');
+  };
+
+  const handleDeleteVacationSchedule = (id: string) => {
+      setVacationSchedules(prev => prev.filter(s => s.id !== id));
+      triggerNotification('Agendamento de férias removido.', 'sms');
+  };
+
   // --- MESSAGE STATUS LOGIC (GREEN/RED) ---
   let messageStatus: 'red' | 'green' | 'none' = 'none';
 
@@ -513,6 +620,10 @@ export default function App() {
 
   const visibleNotifications = notifications.filter(n => !n.targetUserId || n.targetUserId === user.id);
 
+  // --- VACATION MODE CHECK ---
+  // If user is employee AND has a vacation return date set
+  const isOnVacation = !!user.vacationReturnDate && user.role === 'employee';
+
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900 font-sans">
       <div className="fixed top-4 right-4 z-40 space-y-2 max-w-md w-full px-4 md:px-0 pointer-events-none">
@@ -534,6 +645,7 @@ export default function App() {
         setMobileMenuOpen={setMobileMenuOpen}
         messageStatus={messageStatus}
         isMessagesTabEnabled={isMessagesTabEnabled}
+        isVacationMode={isOnVacation}
       />
       
       <main className="flex-1 md:ml-64 relative">
@@ -544,9 +656,11 @@ export default function App() {
             </button>
             <div>
               <h1 className="text-xl md:text-3xl font-bold text-slate-900 truncate max-w-[200px] md:max-w-none">
-                {activeTab === 'announcements' ? 'Comunicados' : 
+                {isOnVacation ? 'Férias' : 
+                 activeTab === 'announcements' ? 'Comunicados' : 
                  activeTab === 'messages' ? 'Minhas Mensagens' : 
-                 activeTab === 'calendar' ? `Feriados ${currentYear}` : 'CineFlow'}
+                 activeTab === 'calendar' ? `Feriados ${currentYear}` : 
+                 activeTab === 'schedulings' ? 'Agendamentos' : 'CineFlow'}
               </h1>
             </div>
            </div>
@@ -580,31 +694,40 @@ export default function App() {
         </header>
 
         <div className="p-4 md:p-8 pt-24 md:pt-28 max-w-6xl mx-auto">
-          {user.role === 'super_admin' && activeTab === 'branches' && <BranchManagement branches={branches} onAddBranch={(n,l) => setBranches([...branches, {id: Date.now().toString(), name:n, location:l}])} onDeleteBranch={(id) => setBranches(prev => prev.filter(b => b.id !== id))} />}
-          
-          {activeTab === 'schedule' && <Schedule shifts={visibleShifts} dailySchedules={dailySchedules} themeColor={currentTheme} userRole={user.role} userId={user.id} users={visibleUsers} requests={visibleRequests} publishedMonths={publishedMonths} onUpdateShifts={s => setShifts(s)} onUpdateDailySchedule={s => setDailySchedules(p => [...p.filter(x => x.id !== s.id), s])} onBulkUpdateDailySchedule={list => setDailySchedules(p => [...p, ...list])} onRequestOff={d => setOffRequests(p => [...p, {id: Date.now().toString(), branchId: user.branchId!, userId: user.id, userName: user.name, date: d, status: 'pending', requestDate: new Date().toLocaleDateString()}])} onResolveRequest={(id, st) => setOffRequests(p => p.map(r => r.id === id ? {...r, status: st} : r))} onDeleteRequest={id => setOffRequests(p => p.filter(r => r.id !== id))} onTogglePublish={k => setPublishedMonths(p => p.includes(k) ? p.filter(x => x !== k) : [...p, k])} onToggleUserWeeklySchedule={handleToggleUserWeeklySchedule} isSundayOffEnabled={isSundayOffEnabled} isWeeklyScheduleEnabled={isWeeklyScheduleEnabled} />}
+          {/* VACATION MODE RENDER */}
+          {isOnVacation ? (
+              <VacationMode returnDate={user.vacationReturnDate!} userName={user.name} themeColor={currentTheme} />
+          ) : (
+            <>
+                {user.role === 'super_admin' && activeTab === 'branches' && <BranchManagement branches={branches} onAddBranch={(n,l) => setBranches([...branches, {id: Date.now().toString(), name:n, location:l}])} onDeleteBranch={(id) => setBranches(prev => prev.filter(b => b.id !== id))} />}
+                
+                {activeTab === 'schedule' && <Schedule shifts={visibleShifts} dailySchedules={dailySchedules} themeColor={currentTheme} userRole={user.role} userId={user.id} users={visibleUsers} requests={visibleRequests} publishedMonths={publishedMonths} onUpdateShifts={s => setShifts(s)} onUpdateDailySchedule={s => setDailySchedules(p => [...p.filter(x => x.id !== s.id), s])} onBulkUpdateDailySchedule={list => setDailySchedules(p => [...p, ...list])} onRequestOff={d => setOffRequests(p => [...p, {id: Date.now().toString(), branchId: user.branchId!, userId: user.id, userName: user.name, date: d, status: 'pending', requestDate: new Date().toLocaleDateString()}])} onResolveRequest={(id, st) => setOffRequests(p => p.map(r => r.id === id ? {...r, status: st} : r))} onDeleteRequest={id => setOffRequests(p => p.filter(r => r.id !== id))} onTogglePublish={k => setPublishedMonths(p => p.includes(k) ? p.filter(x => x !== k) : [...p, k])} onToggleUserWeeklySchedule={handleToggleUserWeeklySchedule} onUpdateUser={(id, data) => setUsers(p => p.map(u => u.id === id ? {...u, ...data} : u))} isSundayOffEnabled={isSundayOffEnabled} isWeeklyScheduleEnabled={isWeeklyScheduleEnabled} />}
 
-          {activeTab === 'announcements' && <Announcements items={announcements} themeColor={currentTheme} userRole={user.role} onDelete={id => setItems(p => p.filter(i => i.id !== id))} userName={user.name} messages={[]} />}
+                {activeTab === 'announcements' && <Announcements items={announcements} themeColor={currentTheme} userRole={user.role} onDelete={id => setItems(p => p.filter(i => i.id !== id))} userName={user.name} messages={[]} />}
 
-          {activeTab === 'messages' && <Announcements title="Mensagens Recebidas" subtitle="Comunicação direta" items={[]} themeColor={currentTheme} userRole={user.role} onDelete={() => {}} userName={user.name} messages={visibleMessages} onReply={handleReplyToMessage} onDeleteMessage={handleDeleteDirectMessage} users={visibleUsers} onSendMessage={handleSendDirectMessage} />}
+                {activeTab === 'messages' && <Announcements title="Mensagens Recebidas" subtitle="Comunicação direta" items={[]} themeColor={currentTheme} userRole={user.role} onDelete={() => {}} userName={user.name} messages={visibleMessages} onReply={handleReplyToMessage} onDeleteMessage={handleDeleteDirectMessage} users={visibleUsers} onSendMessage={handleSendDirectMessage} />}
 
-          {activeTab === 'board' && <Board themeColor={currentTheme} activeBreak={activeBreaks.find(b => b.userId === user.id)} onStartBreak={t => setActiveBreaks(p => [...p, {id: Date.now().toString(), userId: user.id, branchId: user.branchId!, userName: user.name, userAvatar: user.avatar, startTime: t, duration: 3600}])} onEndBreak={() => setActiveBreaks(p => p.filter(b => b.userId !== user.id))} onNotify={triggerNotification} />}
-          
-          {activeTab === 'team' && <TeamManagement users={visibleUsers} currentUserRole={user.role} branches={branches} availableJobTitles={availableJobTitles} onAddUser={(u) => setUsers(p => [...p, {...u, id: Date.now().toString(), avatar: 'NU', themeColor: 'blue'}])} onUpdateUser={(id, d) => setUsers(p => p.map(u => u.id === id ? {...u, ...d} : u))} onDeleteUser={id => setUsers(p => p.filter(u => u.id !== id))} onAddJobTitle={t => setAvailableJobTitles(p => [...p, t])} onEditJobTitle={(o, n) => setAvailableJobTitles(p => p.map(t => t === o ? n : t))} onDeleteJobTitle={t => setAvailableJobTitles(p => p.filter(x => x !== t))} onSendMessage={handleSendDirectMessage} />}
-          
-          {activeTab === 'settings' && <Settings user={user} currentTheme={currentTheme} onThemeChange={setCurrentTheme} isSundayOffEnabled={isSundayOffEnabled} onToggleSundayOff={() => setIsSundayOffEnabled(!isSundayOffEnabled)} isWeeklyScheduleEnabled={isWeeklyScheduleEnabled} onToggleWeeklySchedule={() => {
-              const newValue = !isWeeklyScheduleEnabled;
-              setIsWeeklyScheduleEnabled(newValue);
-              localStorage.setItem('cineflow_weekly_schedule', JSON.stringify(newValue));
-          }} isMessagesTabEnabled={isMessagesTabEnabled} onToggleMessagesTab={() => {
-              const newValue = !isMessagesTabEnabled;
-              setIsMessagesTabEnabled(newValue);
-              localStorage.setItem('cineflow_messages_enabled', JSON.stringify(newValue));
-          }} onUpdateAvatar={(f) => {}} />}
-          
-          {activeTab === 'break_monitor' && <BreakMonitor activeBreaks={visibleBreaks} themeColor={currentTheme} breakHistory={visibleBreakHistory} />}
+                {activeTab === 'board' && <Board themeColor={currentTheme} activeBreak={activeBreaks.find(b => b.userId === user.id)} onStartBreak={t => setActiveBreaks(p => [...p, {id: Date.now().toString(), userId: user.id, branchId: user.branchId!, userName: user.name, userAvatar: user.avatar, startTime: t, duration: 3600}])} onEndBreak={() => setActiveBreaks(p => p.filter(b => b.userId !== user.id))} onNotify={triggerNotification} />}
+                
+                {activeTab === 'team' && <TeamManagement users={visibleUsers} currentUserRole={user.role} branches={branches} availableJobTitles={availableJobTitles} onAddUser={(u) => setUsers(p => [...p, {...u, id: Date.now().toString(), avatar: 'NU', themeColor: 'blue'}])} onUpdateUser={(id, d) => setUsers(p => p.map(u => u.id === id ? {...u, ...d} : u))} onDeleteUser={id => setUsers(p => p.filter(u => u.id !== id))} onAddJobTitle={t => setAvailableJobTitles(p => [...p, t])} onEditJobTitle={(o, n) => setAvailableJobTitles(p => p.map(t => t === o ? n : t))} onDeleteJobTitle={t => setAvailableJobTitles(p => p.filter(x => x !== t))} onSendMessage={handleSendDirectMessage} />}
+                
+                {activeTab === 'settings' && <Settings user={user} currentTheme={currentTheme} onThemeChange={setCurrentTheme} isSundayOffEnabled={isSundayOffEnabled} onToggleSundayOff={() => setIsSundayOffEnabled(!isSundayOffEnabled)} isWeeklyScheduleEnabled={isWeeklyScheduleEnabled} onToggleWeeklySchedule={() => {
+                    const newValue = !isWeeklyScheduleEnabled;
+                    setIsWeeklyScheduleEnabled(newValue);
+                    localStorage.setItem('cineflow_weekly_schedule', JSON.stringify(newValue));
+                }} isMessagesTabEnabled={isMessagesTabEnabled} onToggleMessagesTab={() => {
+                    const newValue = !isMessagesTabEnabled;
+                    setIsMessagesTabEnabled(newValue);
+                    localStorage.setItem('cineflow_messages_enabled', JSON.stringify(newValue));
+                }} onUpdateAvatar={(f) => {}} />}
+                
+                {activeTab === 'break_monitor' && <BreakMonitor activeBreaks={visibleBreaks} themeColor={currentTheme} breakHistory={visibleBreakHistory} />}
 
-          {activeTab === 'calendar' && <HolidayCalendar themeColor={currentTheme} holidays={holidays} onAdd={handleAddHoliday} onEdit={handleEditHoliday} onDelete={handleDeleteHoliday} userRole={user.role} year={currentYear} onYearChange={handleYearChange} />}
+                {activeTab === 'calendar' && <HolidayCalendar themeColor={currentTheme} holidays={holidays} onAdd={handleAddHoliday} onEdit={handleEditHoliday} onDelete={handleDeleteHoliday} userRole={user.role} year={currentYear} onYearChange={handleYearChange} />}
+
+                {activeTab === 'schedulings' && <ScheduledVacations users={visibleUsers} schedules={visibleVacationSchedules} themeColor={currentTheme} onAddSchedule={handleAddVacationSchedule} onDeleteSchedule={handleDeleteVacationSchedule} />}
+            </>
+          )}
         </div>
       </main>
 

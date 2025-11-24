@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Megaphone, Settings, LogOut, CalendarClock, Users, Building, Timer, Clock, GripVertical, LucideIcon, MessageCircle, Hexagon, CalendarRange } from 'lucide-react';
+import { Megaphone, Settings, LogOut, CalendarClock, Users, Building, Timer, Clock, GripVertical, LucideIcon, MessageCircle, Hexagon, CalendarRange, CalendarDays } from 'lucide-react';
 import { User, ThemeColor } from '../types';
 
 interface SidebarProps {
@@ -13,6 +13,7 @@ interface SidebarProps {
   setMobileMenuOpen: (open: boolean) => void;
   messageStatus: 'red' | 'green' | 'none';
   isMessagesTabEnabled?: boolean;
+  isVacationMode?: boolean; // New Prop
 }
 
 type MenuItem = {
@@ -30,7 +31,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   mobileMenuOpen, 
   setMobileMenuOpen, 
   messageStatus,
-  isMessagesTabEnabled = false
+  isMessagesTabEnabled = false,
+  isVacationMode = false
 }) => {
   const [orderedItems, setOrderedItems] = useState<MenuItem[]>([]);
   const dragItem = useRef<number | null>(null);
@@ -39,12 +41,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
   useEffect(() => {
     if (!user) return;
 
+    if (isVacationMode) {
+        setOrderedItems([]);
+        return;
+    }
+
     let baseItems: MenuItem[] = [];
 
     if (user.role === 'super_admin') {
         baseItems = [
           { id: 'branches', icon: Building, label: 'Unidades' },
           { id: 'team', icon: Users, label: 'Admin & Equipes' },
+          { id: 'schedulings', icon: CalendarDays, label: 'Agendamentos' },
           { id: 'settings', icon: Settings, label: 'Configurações' }
         ];
     } else {
@@ -64,6 +72,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         if (user.role === 'admin') {
           baseItems.push(
             { id: 'break_monitor', icon: Timer, label: 'Monitoramento' },
+            { id: 'schedulings', icon: CalendarDays, label: 'Agendamentos' },
             { id: 'team', icon: Users, label: 'Minha Equipe' }
           );
         }
@@ -91,7 +100,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     } else {
         setOrderedItems(baseItems);
     }
-  }, [user?.role, user?.id, messageStatus, isMessagesTabEnabled]);
+  }, [user?.role, user?.id, messageStatus, isMessagesTabEnabled, isVacationMode]);
 
   const handleTabClick = (id: string) => {
     setActiveTab(id);
