@@ -142,7 +142,10 @@ export const Schedule: React.FC<ScheduleProps> = ({
   const availableSundays = getNextMonthSundays();
   
   // Get name of next month for display
-  const nextMonthName = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toLocaleDateString('pt-BR', { month: 'long' });
+  const nextMonthObj = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1);
+  const nextMonthName = nextMonthObj.toLocaleDateString('pt-BR', { month: 'long' });
+  const nextMonthYear = nextMonthObj.getFullYear();
+  const nextMonthIndexOneBased = nextMonthObj.getMonth() + 1; // 1-12
 
   const handleSubmitRequest = () => {
       if (!selectedRequestDate) return;
@@ -243,6 +246,13 @@ export const Schedule: React.FC<ScheduleProps> = ({
 
   // My Requests List
   const myRequests = requests.filter(r => r.userId === userId).sort((a,b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
+
+  // Check if user has already used their request for NEXT month
+  const hasActiveRequestForNextMonth = myRequests.some(r => {
+      if (r.status === 'rejected' || !r.fullDate) return false;
+      const [rYear, rMonth] = r.fullDate.split('-').map(Number);
+      return rYear === nextMonthYear && rMonth === nextMonthIndexOneBased;
+  });
 
   // Helper to filter users for the dropdown (exclude super_admin if logged in as regular admin if desired, or show all)
   const selectableUsers = users.filter(u => u.role !== 'super_admin');
@@ -550,12 +560,30 @@ export const Schedule: React.FC<ScheduleProps> = ({
            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8 border-t border-slate-100 pt-8">
                {/* Request Form */}
                <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                   <div className="flex items-center gap-2 mb-4">
-                       <div className={`p-2 rounded-lg bg-${themeColor}-50`}>
-                           <Calendar size={18} className={`text-${themeColor}-600`} />
-                       </div>
-                       <h3 className="font-bold text-slate-800 text-sm">Folga Dominical ({nextMonthName})</h3>
+                   <div className="flex justify-between items-start mb-4">
+                        <div className="flex items-center gap-2">
+                            <div className={`p-2 rounded-lg bg-${themeColor}-50`}>
+                                <Calendar size={18} className={`text-${themeColor}-600`} />
+                            </div>
+                            <h3 className="font-bold text-slate-800 text-sm capitalize">Folga Dominical ({nextMonthName})</h3>
+                        </div>
+                        {/* AVAILABILITY INDICATOR */}
+                        {!hasActiveRequestForNextMonth ? (
+                            <span className="bg-green-100 text-green-700 text-[10px] font-bold px-3 py-1 rounded-full border border-green-200 animate-pulse">
+                                Disponível
+                            </span>
+                        ) : (
+                            <span className="bg-slate-100 text-slate-500 text-[10px] font-bold px-3 py-1 rounded-full border border-slate-200">
+                                Enviado
+                            </span>
+                        )}
                    </div>
+                   
+                   {!hasActiveRequestForNextMonth && (
+                       <p className="text-xs text-slate-500 mb-4 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                           As solicitações para <strong className="text-slate-700 capitalize">{nextMonthName}</strong> estão abertas. Você pode escolher 1 domingo de folga.
+                       </p>
+                   )}
                    
                    <div className="space-y-4">
                        <div>
@@ -563,9 +591,10 @@ export const Schedule: React.FC<ScheduleProps> = ({
                            <select 
                                 value={selectedRequestDate}
                                 onChange={(e) => setSelectedRequestDate(e.target.value)}
-                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm text-slate-700 cursor-pointer"
+                                disabled={hasActiveRequestForNextMonth}
+                                className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm text-slate-700 cursor-pointer ${hasActiveRequestForNextMonth ? 'opacity-50 cursor-not-allowed' : ''}`}
                            >
-                               <option value="">Selecione uma data...</option>
+                               <option value="">{hasActiveRequestForNextMonth ? 'Solicitação já realizada' : 'Selecione uma data...'}</option>
                                {availableSundays.map((date) => {
                                    const dateStr = date.toISOString().split('T')[0];
                                    const display = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
