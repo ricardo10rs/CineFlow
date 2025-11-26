@@ -209,11 +209,12 @@ export const Schedule: React.FC<ScheduleProps> = ({
 
   const getStatusColorClass = (type: string) => {
       switch (type) {
-          case 'Work': return 'bg-blue-600 text-white border-blue-600';
+          // Dynamic Work Color based on theme
+          case 'Work': return `bg-${themeColor}-600 text-white border-${themeColor}-600`;
           case 'SundayOff': return 'bg-purple-600 text-white border-purple-600';
           case 'Off': return 'bg-emerald-500 text-white border-emerald-500';
           case 'Vacation': return 'bg-orange-500 text-white border-orange-500';
-          default: return 'bg-blue-600 text-white border-blue-600';
+          default: return `bg-${themeColor}-600 text-white border-${themeColor}-600`;
       }
   };
 
@@ -298,21 +299,16 @@ export const Schedule: React.FC<ScheduleProps> = ({
        {/* 1. Standard Weekly Schedule */}
        {/* Always visible to Admin. For employees, check setting and individual hide flag. */}
        {(isAdmin || (isWeeklyScheduleEnabled && !effectiveUserObj?.hideWeeklySchedule)) && (
-            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
+            <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
+                <div className="flex justify-between items-center mb-6 px-2">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2 text-lg">
                         <Clock size={20} className={`text-${themeColor}-600`} />
                         Escala da Semana
                     </h3>
-                    {isAdmin && (
-                         <span className="text-[10px] text-blue-500 font-bold bg-blue-50 px-2 py-1 rounded-md hidden sm:inline-block">
-                             Editar
-                         </span>
-                    )}
                 </div>
                 
-                {/* Updated Spacing: justify-between sm:justify-center and gap-1 */}
-                <div className="flex overflow-x-auto pb-2 gap-1 justify-between sm:justify-center no-scrollbar px-1">
+                {/* Fluid, Rounded, Tighter Layout */}
+                <div className="flex overflow-x-auto pb-4 gap-2 sm:gap-3 justify-between sm:justify-center no-scrollbar px-2">
                     {sortedShifts.map((shift, index) => {
                         const shiftDate = new Date(startOfWeekDate);
                         shiftDate.setDate(startOfWeekDate.getDate() + index);
@@ -326,40 +322,42 @@ export const Schedule: React.FC<ScheduleProps> = ({
                                 key={shift.id} 
                                 onClick={() => handleShiftClick(shift)}
                                 className={`
-                                    min-w-[50px] sm:min-w-[70px] h-[110px] rounded-[20px] p-1.5 flex flex-col items-center justify-between transition-all duration-300 border relative group select-none
-                                    ${isAdmin ? 'cursor-pointer hover:border-blue-300' : ''}
+                                    min-w-[55px] sm:min-w-[75px] h-[130px] rounded-[30px] p-2 flex flex-col items-center justify-between transition-all duration-300 relative select-none
+                                    ${isAdmin ? 'cursor-pointer hover:scale-105 hover:shadow-md' : ''}
                                     ${isToday 
-                                        ? `bg-${themeColor}-500 border-${themeColor}-500 text-white shadow-lg shadow-${themeColor}-200 scale-100 z-10` 
-                                        : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
+                                        ? `bg-gradient-to-b from-${themeColor}-500 to-${themeColor}-600 text-white shadow-lg shadow-${themeColor}-200/50 scale-105 z-10 border-0` 
+                                        : 'bg-white border border-slate-100 text-slate-500 shadow-sm'
                                     }
                                 `}
                             >
-                                <div className="mt-2 flex flex-col items-center">
-                                    <span className={`text-[9px] font-bold uppercase tracking-wider ${isToday ? 'opacity-80' : 'text-slate-400'}`}>
+                                {/* Top: Day Name */}
+                                <div className="mt-2 flex flex-col items-center leading-none gap-1">
+                                    <span className={`text-[10px] uppercase font-bold tracking-wider ${isToday ? 'opacity-90' : 'text-slate-400'}`}>
                                         {dayName}
                                     </span>
-                                    <span className={`text-lg font-bold ${isToday ? 'text-white' : 'text-slate-800'}`}>
+                                    <span className={`text-sm font-semibold ${isToday ? 'text-white' : 'text-slate-700'}`}>
                                         {dateNumber}
                                     </span>
                                 </div>
 
-                                <div className={`
-                                    mb-2 px-1 w-full text-center rounded-[12px] text-[9px] font-bold uppercase tracking-wide
-                                    ${isToday 
-                                        ? 'text-white' 
-                                        : 'text-slate-700'
-                                    }
-                                `}>
-                                    {shift.type === 'Off' ? 'Fechado' : shift.startTime}
-                                </div>
+                                {/* Middle: Visual Spacer / Divider */}
+                                <div className={`w-4 h-0.5 rounded-full ${isToday ? 'bg-white/30' : 'bg-slate-100'}`}></div>
 
-                                {isAdmin && (
-                                    <div className="absolute inset-0 rounded-[20px] bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-                                        <div className="bg-white p-1 rounded-full shadow-sm">
-                                            <Edit2 size={10} className="text-slate-800" />
-                                        </div>
-                                    </div>
-                                )}
+                                {/* Bottom: Time (Main Focus) */}
+                                <div className={`
+                                    mb-3 w-full text-center flex flex-col items-center justify-center
+                                    ${isToday ? 'text-white' : 'text-slate-800'}
+                                `}>
+                                    {shift.type === 'Off' ? (
+                                        <span className="text-[9px] font-black uppercase tracking-tight opacity-70">
+                                            Fechado
+                                        </span>
+                                    ) : (
+                                        <span className="text-xl font-black tracking-tighter leading-none">
+                                            {shift.startTime}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         );
                     })}
@@ -530,7 +528,7 @@ export const Schedule: React.FC<ScheduleProps> = ({
                     <div className="bg-slate-50 border-t border-slate-100 p-4">
                         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                             <div className="flex flex-wrap justify-center gap-4 text-[10px] font-bold text-slate-500 uppercase tracking-wide">
-                                <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-blue-600"></span>Trabalho</div>
+                                <div className="flex items-center gap-1.5"><span className={`w-3 h-3 rounded-full bg-${themeColor}-600`}></span>Trabalho</div>
                                 <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-purple-600"></span>Folga Dom</div>
                                 <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-emerald-500"></span>Folga Semanal</div>
                                 <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-orange-500"></span>Férias</div>
