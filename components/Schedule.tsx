@@ -241,7 +241,7 @@ export const Schedule: React.FC<ScheduleProps> = ({
                            <div className={`w-6 h-6 rounded-full border flex items-center justify-center transition-all ${editIsOff ? 'bg-blue-600 border-blue-600' : 'bg-white border-slate-300'}`}>
                                {editIsOff && <CheckCircle2 size={16} className="text-white" />}
                            </div>
-                           <span className="text-sm font-bold text-slate-700">Marcar como Folga</span>
+                           <span className="text-sm font-bold text-slate-700">Fechado</span>
                        </div>
 
                        {!editIsOff && (
