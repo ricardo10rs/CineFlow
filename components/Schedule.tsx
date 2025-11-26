@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { WorkShift, DailySchedule, ThemeColor, UserRole, User, OffRequest } from '../types';
-import { Calendar, ChevronLeft, ChevronRight, Clock, AlertCircle, CheckCircle2, Lock, MousePointer2, Trash2, Edit2, X, Save, User as UserIcon, Send } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Clock, AlertCircle, CheckCircle2, Lock, MousePointer2, Trash2, Edit2, X, Save, User as UserIcon, Send, Search } from 'lucide-react';
 
 interface ScheduleProps {
   shifts: WorkShift[];
@@ -44,6 +44,9 @@ export const Schedule: React.FC<ScheduleProps> = ({
 }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   
+  // Admin View State: Which user is the admin currently editing?
+  const [viewUserId, setViewUserId] = useState(userId);
+
   // Edit Weekly Schedule States
   const [editingShift, setEditingShift] = useState<WorkShift | null>(null);
   const [editStartTime, setEditStartTime] = useState('');
@@ -53,7 +56,11 @@ export const Schedule: React.FC<ScheduleProps> = ({
   const [selectedRequestDate, setSelectedRequestDate] = useState('');
 
   const isAdmin = userRole === 'admin' || userRole === 'super_admin';
-  const currentUserObj = users.find(u => u.id === userId);
+  
+  // The user currently being viewed in the calendar (Effective User)
+  // If not admin, force viewUserId to be the logged-in userId
+  const effectiveUserId = isAdmin ? viewUserId : userId;
+  const effectiveUserObj = users.find(u => u.id === effectiveUserId);
 
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay(); // 0 is Sunday
@@ -79,7 +86,7 @@ export const Schedule: React.FC<ScheduleProps> = ({
       
       // Admin Toggle Logic
       if (isAdmin) {
-          const existingSchedule = dailySchedules.find(s => s.date === dateStr && s.userId === userId);
+          const existingSchedule = dailySchedules.find(s => s.date === dateStr && s.userId === effectiveUserId);
           const currentType = existingSchedule ? existingSchedule.type : 'Work';
 
           let nextType: 'Work' | 'Off' | 'Vacation' | 'SundayOff' = 'Work';
@@ -92,7 +99,7 @@ export const Schedule: React.FC<ScheduleProps> = ({
               if (isSunday) {
                   nextType = 'SundayOff'; // Folga Dominical
               } else {
-                  nextType = 'Work'; // Back to start
+                  nextType = 'Work'; // Back to start (skip SundayOff for non-Sundays)
               }
           } else if (currentType === 'SundayOff') {
               nextType = 'Work';
@@ -100,7 +107,7 @@ export const Schedule: React.FC<ScheduleProps> = ({
 
           const newSchedule: DailySchedule = {
               id: existingSchedule ? existingSchedule.id : Date.now().toString(),
-              userId: userId,
+              userId: effectiveUserId, // Edit the SELECTED user, not necessarily the logged in admin
               date: dateStr,
               type: nextType
           };
@@ -110,30 +117,31 @@ export const Schedule: React.FC<ScheduleProps> = ({
       }
   };
 
-  // --- SUNDAY REQUEST LOGIC ---
-  const getUpcomingSundays = () => {
+  // --- SUNDAY REQUEST LOGIC (Next Month Only) ---
+  const getNextMonthSundays = () => {
       const dates: Date[] = [];
       const today = new Date();
-      // Start from today
-      let d = new Date(today);
       
-      // Find next Sunday
-      const day = d.getDay();
-      const diff = d.getDate() - day + (day === 0 ? 0 : 7); 
-      d.setDate(diff); // Next Sunday (or today if Sunday)
+      // Set to 1st day of next month
+      const nextMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+      const nextMonthIndex = nextMonthDate.getMonth();
+      
+      let d = new Date(nextMonthDate);
 
-      // Only allow future dates
-      if (d <= today) d.setDate(d.getDate() + 7);
-
-      // Generate for next 8 weeks (approx 2 months)
-      for (let i = 0; i < 12; i++) {
-          dates.push(new Date(d));
-          d.setDate(d.getDate() + 7);
+      // Iterate through the entire next month
+      while (d.getMonth() === nextMonthIndex) {
+          if (d.getDay() === 0) { // If Sunday
+              dates.push(new Date(d));
+          }
+          d.setDate(d.getDate() + 1);
       }
       return dates;
   };
 
-  const availableSundays = getUpcomingSundays();
+  const availableSundays = getNextMonthSundays();
+  
+  // Get name of next month for display
+  const nextMonthName = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toLocaleDateString('pt-BR', { month: 'long' });
 
   const handleSubmitRequest = () => {
       if (!selectedRequestDate) return;
@@ -219,6 +227,9 @@ export const Schedule: React.FC<ScheduleProps> = ({
   // My Requests List
   const myRequests = requests.filter(r => r.userId === userId).sort((a,b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
 
+  // Helper to filter users for the dropdown (exclude super_admin if logged in as regular admin if desired, or show all)
+  const selectableUsers = users.filter(u => u.role !== 'super_admin');
+
   return (
     <div className="space-y-8 animate-fade-in relative">
        
@@ -283,7 +294,6 @@ export const Schedule: React.FC<ScheduleProps> = ({
                     )}
                 </div>
                 
-                {/* Reduced Gap Here */}
                 <div className="flex overflow-x-auto pb-4 gap-1 sm:justify-between no-scrollbar px-1">
                     {sortedShifts.map((shift, index) => {
                         const shiftDate = new Date(startOfWeekDate);
@@ -348,7 +358,7 @@ export const Schedule: React.FC<ScheduleProps> = ({
                        <div className={`p-2 rounded-lg bg-${themeColor}-50`}>
                            <Calendar size={18} className={`text-${themeColor}-600`} />
                        </div>
-                       <h3 className="font-bold text-slate-800 text-sm">Solicitar Folga Dominical</h3>
+                       <h3 className="font-bold text-slate-800 text-sm">Folga Dominical ({nextMonthName})</h3>
                    </div>
                    
                    <div className="space-y-4">
@@ -374,6 +384,9 @@ export const Schedule: React.FC<ScheduleProps> = ({
                                    );
                                })}
                            </select>
+                           {availableSundays.length === 0 && (
+                               <p className="text-[10px] text-orange-500 mt-1">Não há domingos disponíveis no próximo mês.</p>
+                           )}
                        </div>
 
                        <button 
@@ -424,22 +437,37 @@ export const Schedule: React.FC<ScheduleProps> = ({
 
        {/* 3. Monthly Calendar Header */}
        <div className="flex flex-col md:flex-row justify-between items-end gap-4 mt-8">
-         <div>
-            {/* User Info Header */}
-            {currentUserObj && (
-                <div className="flex items-center gap-2 mb-1">
-                    <UserIcon size={14} className="text-slate-400" />
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">
-                        {currentUserObj.name} • {currentUserObj.jobTitle || 'Funcionário'}
-                    </span>
-                </div>
+         <div className="w-full md:w-auto">
+            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                Escala Mensal
+                {isAdmin && (
+                    <div className="ml-2 relative group">
+                         <select
+                            value={viewUserId}
+                            onChange={(e) => setViewUserId(e.target.value)}
+                            className="appearance-none bg-blue-50 border border-blue-200 text-blue-700 text-sm font-bold py-1.5 pl-3 pr-8 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                         >
+                            {/* Option for the admin themselves if they want to edit their own */}
+                            <option value={userId}>Minha Escala</option>
+                            {selectableUsers.map(u => (
+                                <option key={u.id} value={u.id}>{u.name}</option>
+                            ))}
+                         </select>
+                         <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-blue-500">
+                            <ChevronRight size={14} className="rotate-90" />
+                         </div>
+                    </div>
+                )}
+            </h2>
+            
+            {/* Display Selected User Info for Admin */}
+            {effectiveUserObj && isAdmin && (
+                 <div className="mt-1 flex items-center gap-2 text-sm text-slate-500 bg-slate-50 w-fit px-2 py-1 rounded border border-slate-100">
+                     <UserIcon size={12} />
+                     <span>Editando: <span className="font-bold text-slate-700">{effectiveUserObj.name}</span></span>
+                 </div>
             )}
-            <h2 className="text-xl font-bold text-slate-800">Escala Mensal</h2>
-            <p className="text-sm text-slate-500">
-                {isAdmin 
-                    ? 'Clique nos dias para alternar status.' 
-                    : 'Visualize seus horários.'}
-            </p>
+            {!isAdmin && <p className="text-sm text-slate-500">Visualize seus horários.</p>}
          </div>
          
          <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
@@ -511,13 +539,15 @@ export const Schedule: React.FC<ScheduleProps> = ({
                                 const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                                 const reqDateStr = formatRequestDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), day));
                                 
-                                const userSchedule = dailySchedules.find(s => s.date === dateStr && s.userId === userId);
+                                // Lookup schedule for the EFFECTIVE user (Admin selected or logged in user)
+                                const userSchedule = dailySchedules.find(s => s.date === dateStr && s.userId === effectiveUserId);
                                 
                                 const dayDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
                                 const dayOfWeek = dayDate.getDay();
                                 const weekDayName = dayDate.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '').toUpperCase();
 
-                                const hasPendingRequest = requests.some(r => (r.fullDate === dateStr || r.date === reqDateStr) && (isAdmin || r.userId === userId) && r.status === 'pending');
+                                // Check pending requests for the EFFECTIVE user
+                                const hasPendingRequest = requests.some(r => (r.fullDate === dateStr || r.date === reqDateStr) && r.userId === effectiveUserId && r.status === 'pending');
 
                                 // Default Styling - Start with WORK (Blue) as default for everyone
                                 let cellClass = getStatusColorClass('Work');
