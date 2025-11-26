@@ -47,7 +47,7 @@ export const Schedule: React.FC<ScheduleProps> = ({
   // Edit Weekly Schedule States
   const [editingShift, setEditingShift] = useState<WorkShift | null>(null);
   const [editStartTime, setEditStartTime] = useState('');
-  const [editEndTime, setEditEndTime] = useState('');
+  // End time state removed as requested
   const [editIsOff, setEditIsOff] = useState(false);
 
   const isAdmin = userRole === 'admin' || userRole === 'super_admin';
@@ -135,7 +135,6 @@ export const Schedule: React.FC<ScheduleProps> = ({
       if (!isAdmin) return;
       setEditingShift(shift);
       setEditStartTime(shift.startTime === '-' ? '09:00' : shift.startTime);
-      setEditEndTime(shift.endTime === '-' ? '18:00' : shift.endTime);
       setEditIsOff(shift.type === 'Off');
   };
 
@@ -147,8 +146,8 @@ export const Schedule: React.FC<ScheduleProps> = ({
               return {
                   ...s,
                   startTime: editIsOff ? '-' : editStartTime,
-                  endTime: editIsOff ? '-' : editEndTime,
-                  type: editIsOff ? 'Off' : 'Work' as const // Type assertion needed or ensure type matches
+                  endTime: '-', // Explicitly ignore end time as requested
+                  type: editIsOff ? 'Off' : 'Work' as const
               };
           }
           return s;
@@ -202,81 +201,67 @@ export const Schedule: React.FC<ScheduleProps> = ({
        {/* EDIT SHIFT MODAL */}
        {editingShift && (
            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
-               <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-fade-in-up border border-slate-100">
-                   <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50">
+               <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xs overflow-hidden animate-fade-in-up border border-slate-100">
+                   <div className="flex justify-between items-center p-5 border-b border-slate-100 bg-slate-50/50">
                        <h3 className="text-lg font-bold text-slate-800 flex items-center">
                            <Edit2 size={18} className="mr-2 text-blue-600" />
-                           Editar {editingShift.dayOfWeek}
+                           {editingShift.dayOfWeek}
                        </h3>
-                       <button onClick={() => setEditingShift(null)} className="text-slate-400 hover:text-slate-600">
-                           <X size={20} />
+                       <button onClick={() => setEditingShift(null)} className="text-slate-400 hover:text-slate-600 bg-white p-1 rounded-full shadow-sm">
+                           <X size={18} />
                        </button>
                    </div>
                    
-                   <div className="p-6 space-y-4">
-                       <div className="flex items-center space-x-3 bg-slate-50 p-3 rounded-xl border border-slate-200 cursor-pointer" onClick={() => setEditIsOff(!editIsOff)}>
-                           <div className={`w-5 h-5 rounded border flex items-center justify-center ${editIsOff ? 'bg-blue-600 border-blue-600' : 'bg-white border-slate-300'}`}>
-                               {editIsOff && <CheckCircle2 size={14} className="text-white" />}
+                   <div className="p-6 space-y-6">
+                       <div className="flex items-center space-x-3 bg-slate-50 p-4 rounded-2xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => setEditIsOff(!editIsOff)}>
+                           <div className={`w-6 h-6 rounded-full border flex items-center justify-center transition-all ${editIsOff ? 'bg-blue-600 border-blue-600' : 'bg-white border-slate-300'}`}>
+                               {editIsOff && <CheckCircle2 size={16} className="text-white" />}
                            </div>
                            <span className="text-sm font-bold text-slate-700">Marcar como Folga</span>
                        </div>
 
                        {!editIsOff && (
-                           <div className="grid grid-cols-2 gap-4">
-                               <div>
-                                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Início</label>
-                                   <input 
-                                       type="time" 
-                                       value={editStartTime}
-                                       onChange={(e) => setEditStartTime(e.target.value)}
-                                       className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none text-center font-mono font-bold"
-                                   />
-                               </div>
-                               <div>
-                                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Término</label>
-                                   <input 
-                                       type="time" 
-                                       value={editEndTime}
-                                       onChange={(e) => setEditEndTime(e.target.value)}
-                                       className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none text-center font-mono font-bold"
-                                   />
-                               </div>
+                           <div>
+                               <label className="block text-xs font-bold text-slate-500 uppercase mb-2 text-center">Horário de Início</label>
+                               <input 
+                                   type="time" 
+                                   value={editStartTime}
+                                   onChange={(e) => setEditStartTime(e.target.value)}
+                                   className="w-full px-4 py-4 bg-white border border-slate-300 rounded-2xl text-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none text-center font-mono font-bold text-slate-800"
+                               />
                            </div>
                        )}
 
                        <button 
                            onClick={handleSaveShift}
-                           className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center mt-2"
+                           className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl shadow-xl shadow-blue-500/20 transition-all flex items-center justify-center transform active:scale-95"
                        >
-                           <Save size={18} className="mr-2" />
-                           Salvar Alterações
+                           <Save size={20} className="mr-2" />
+                           Salvar
                        </button>
                    </div>
                </div>
            </div>
        )}
 
-       {/* 1. Standard Weekly Schedule - RE-STYLED CAPSULE FORMAT */}
+       {/* 1. Standard Weekly Schedule - RE-STYLED VERTICAL CAPSULES */}
        {isWeeklyScheduleEnabled && (
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
                 <div className="flex justify-between items-center mb-6">
                     <h3 className="font-bold text-slate-800 flex items-center gap-2">
                         <Clock size={20} className={`text-${themeColor}-600`} />
-                        Escala Padrão Semanal
+                        Escala Padrão
                     </h3>
                     <div className="flex items-center gap-2">
                         {isAdmin && (
                              <span className="text-[10px] text-blue-500 font-bold bg-blue-50 px-2 py-1 rounded-md hidden sm:inline-block">
-                                 Clique para editar
+                                 Editar
                              </span>
                         )}
-                        <span className="text-xs text-slate-400 font-medium bg-slate-50 px-3 py-1.5 rounded-full border border-slate-200">
-                            Semana de {startOfWeekDate.toLocaleDateString('pt-BR', {day: 'numeric', month: 'short'})}
-                        </span>
                     </div>
                 </div>
                 
-                <div className="flex overflow-x-auto pb-4 gap-3 sm:justify-between no-scrollbar">
+                <div className="flex overflow-x-auto pb-4 gap-3 sm:justify-between no-scrollbar px-1">
                     {sortedShifts.map((shift, index) => {
                         // Calculate specific date for this card
                         const shiftDate = new Date(startOfWeekDate);
@@ -292,35 +277,43 @@ export const Schedule: React.FC<ScheduleProps> = ({
                                 key={shift.id} 
                                 onClick={() => handleShiftClick(shift)}
                                 className={`
-                                    min-w-[80px] sm:min-w-[100px] flex-1 rounded-[24px] p-4 flex flex-col items-center justify-center gap-2 transition-all duration-300 border relative group
+                                    min-w-[70px] sm:min-w-[90px] h-[140px] rounded-[40px] p-2 flex flex-col items-center justify-between transition-all duration-300 border relative group select-none
                                     ${isAdmin ? 'cursor-pointer' : ''}
                                     ${isToday 
-                                        ? `bg-${themeColor}-500 border-${themeColor}-500 text-white shadow-lg shadow-${themeColor}-200 scale-105` 
+                                        ? `bg-${themeColor}-500 border-${themeColor}-500 text-white shadow-xl shadow-${themeColor}-200 scale-105 z-10` 
                                         : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
                                     }
                                 `}
                             >
-                                {/* Edit Hint for Admin */}
-                                {isAdmin && (
-                                    <div className={`absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity ${isToday ? 'text-white/80' : 'text-slate-300'}`}>
-                                        <Edit2 size={12} />
-                                    </div>
-                                )}
+                                {/* Top: Day Name */}
+                                <div className="mt-4 flex flex-col items-center">
+                                    <span className={`text-[10px] font-bold uppercase tracking-wider ${isToday ? 'opacity-80' : 'text-slate-400'}`}>
+                                        {dayName}
+                                    </span>
+                                    <span className={`text-xl font-bold ${isToday ? 'text-white' : 'text-slate-800'}`}>
+                                        {dateNumber}
+                                    </span>
+                                </div>
 
-                                {/* Day Name (Mon, Tue) */}
-                                <span className={`text-xs font-bold uppercase tracking-wider ${isToday ? 'opacity-80' : 'text-slate-400'}`}>
-                                    {dayName}
-                                </span>
-                                
-                                {/* Date Number */}
-                                <span className={`text-2xl sm:text-3xl font-bold ${isToday ? 'text-white' : 'text-slate-700'}`}>
-                                    {dateNumber}
-                                </span>
-
-                                {/* Content: Start Time or OFF */}
-                                <div className={`mt-1 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${isToday ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                                {/* Bottom: Time Pill */}
+                                <div className={`
+                                    mb-2 px-3 py-2 w-full text-center rounded-[20px] text-[10px] font-bold uppercase tracking-wide
+                                    ${isToday 
+                                        ? 'bg-white text-slate-900 shadow-sm' 
+                                        : 'bg-slate-100 text-slate-600'
+                                    }
+                                `}>
                                     {shift.type === 'Off' ? 'Folga' : shift.startTime}
                                 </div>
+
+                                {/* Edit Hint Overlay */}
+                                {isAdmin && (
+                                    <div className="absolute inset-0 rounded-[40px] bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                        <div className="bg-white p-2 rounded-full shadow-sm">
+                                            <Edit2 size={12} className="text-slate-800" />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         );
                     })}
@@ -334,7 +327,7 @@ export const Schedule: React.FC<ScheduleProps> = ({
             <h2 className="text-xl font-bold text-slate-800">Escala Mensal</h2>
             <p className="text-sm text-slate-500">
                 {isAdmin 
-                    ? 'Clique nos dias para alternar: Trabalho > Folga > Férias > Folga Dom.' 
+                    ? 'Clique nos dias para alternar status.' 
                     : 'Visualize seus horários e folgas do mês.'}
             </p>
          </div>
