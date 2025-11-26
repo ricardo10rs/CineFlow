@@ -318,14 +318,19 @@ export default function App() {
       ]);
   };
 
-  const handleRequestOff = (date: string) => {
+  const handleRequestOff = (dateIso: string) => {
       if (!user) return;
+      
+      const [year, month, day] = dateIso.split('-');
+      const displayDate = `${day}/${month}`;
+
       const newReq: OffRequest = {
           id: Date.now().toString(),
           branchId: user.branchId || '1',
           userId: user.id,
           userName: user.name,
-          date,
+          date: displayDate,
+          fullDate: dateIso,
           status: 'pending',
           requestDate: new Date().toLocaleDateString('pt-BR')
       };
@@ -336,30 +341,23 @@ export default function App() {
       setRequests(prev => prev.map(r => {
           if (r.id === requestId) {
               const updated = { ...r, status, resolutionDate: new Date().toISOString() };
-              if (status === 'approved') {
-                  // Auto-update calendar for the requested Sunday
-                  const [dayStr, monthStr] = r.date.split('/');
-                  const currentYear = new Date().getFullYear();
-                  
-                  // Ensure valid padded date string for YYYY-MM-DD
-                  const paddedDay = dayStr.padStart(2, '0');
-                  const paddedMonth = monthStr.padStart(2, '0');
-                  const dateIso = `${currentYear}-${paddedMonth}-${paddedDay}`;
-
+              
+              if (status === 'approved' && r.fullDate) {
                   const newDailySchedule: DailySchedule = {
                       id: Date.now().toString(),
                       userId: r.userId,
-                      date: dateIso,
-                      type: 'SundayOff'
+                      date: r.fullDate,
+                      type: 'SundayOff' // Automatically set to SundayOff (Purple)
                   };
                   
-                  // We need to update dailySchedules here as well
+                  // Update dailySchedules
                   setDailySchedules(currentSchedules => {
                       // Remove any existing schedule for this date/user
-                      const filtered = currentSchedules.filter(s => !(s.userId === r.userId && s.date === dateIso));
+                      const filtered = currentSchedules.filter(s => !(s.userId === r.userId && s.date === r.fullDate));
                       return [...filtered, newDailySchedule];
                   });
               }
+              
               return updated;
           }
           return r;

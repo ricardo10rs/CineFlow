@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { WorkShift, DailySchedule, ThemeColor, UserRole, User, OffRequest } from '../types';
-import { Calendar, ChevronLeft, ChevronRight, Clock, AlertCircle, CheckCircle2, Lock, MousePointer2, Trash2, Edit2, X, Save } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Clock, AlertCircle, CheckCircle2, Lock, MousePointer2, Trash2, Edit2, X, Save, User as UserIcon, Send } from 'lucide-react';
 
 interface ScheduleProps {
   shifts: WorkShift[];
@@ -47,10 +47,13 @@ export const Schedule: React.FC<ScheduleProps> = ({
   // Edit Weekly Schedule States
   const [editingShift, setEditingShift] = useState<WorkShift | null>(null);
   const [editStartTime, setEditStartTime] = useState('');
-  // End time state removed as requested
   const [editIsOff, setEditIsOff] = useState(false);
 
+  // Request Off State
+  const [selectedRequestDate, setSelectedRequestDate] = useState('');
+
   const isAdmin = userRole === 'admin' || userRole === 'super_admin';
+  const currentUserObj = users.find(u => u.id === userId);
 
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay(); // 0 is Sunday
@@ -64,14 +67,9 @@ export const Schedule: React.FC<ScheduleProps> = ({
     newDate.setMonth(newDate.getMonth() + increment);
     setCurrentDate(newDate);
   };
-
-  const getDaySchedules = (day: number) => {
-    const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    return dailySchedules.filter(s => s.date === dateStr);
-  };
   
-  const formatRequestDate = (day: number) => {
-      return `${String(day).padStart(2, '0')}/${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+  const formatRequestDate = (dateObj: Date) => {
+      return `${String(dateObj.getDate()).padStart(2, '0')}/${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
   };
 
   const handleDayClick = (day: number) => {
@@ -81,14 +79,11 @@ export const Schedule: React.FC<ScheduleProps> = ({
       
       // Admin Toggle Logic
       if (isAdmin) {
-          // Find specific schedule for the current user context (userId)
-          // We default to "Work" if nothing exists.
           const existingSchedule = dailySchedules.find(s => s.date === dateStr && s.userId === userId);
           const currentType = existingSchedule ? existingSchedule.type : 'Work';
 
           let nextType: 'Work' | 'Off' | 'Vacation' | 'SundayOff' = 'Work';
 
-          // Cycle: Work -> Off -> Vacation -> (SundayOff if Sunday) -> Work
           if (currentType === 'Work') {
               nextType = 'Off'; // Folga Semanal
           } else if (currentType === 'Off') {
@@ -113,21 +108,52 @@ export const Schedule: React.FC<ScheduleProps> = ({
           onUpdateDailySchedule(newSchedule);
           return;
       }
+  };
 
-      // Request Off Logic for Employees on Sundays
-      if (!isAdmin && isSunday && isSundayOffEnabled) {
-          const reqDate = formatRequestDate(day);
-          const hasPending = requests.some(r => r.date === reqDate && r.userId === userId && r.status === 'pending');
-          
-          if (hasPending) {
-              alert('Você já tem uma solicitação pendente para este dia.');
-              return;
-          }
+  // --- SUNDAY REQUEST LOGIC ---
+  const getUpcomingSundays = () => {
+      const dates: Date[] = [];
+      const today = new Date();
+      // Start from today
+      let d = new Date(today);
+      
+      // Find next Sunday
+      const day = d.getDay();
+      const diff = d.getDate() - day + (day === 0 ? 0 : 7); 
+      d.setDate(diff); // Next Sunday (or today if Sunday)
 
-          if (window.confirm(`Deseja solicitar folga para o domingo dia ${reqDate}?`)) {
-              onRequestOff(reqDate);
-          }
+      // Only allow future dates
+      if (d <= today) d.setDate(d.getDate() + 7);
+
+      // Generate for next 8 weeks (approx 2 months)
+      for (let i = 0; i < 12; i++) {
+          dates.push(new Date(d));
+          d.setDate(d.getDate() + 7);
       }
+      return dates;
+  };
+
+  const availableSundays = getUpcomingSundays();
+
+  const handleSubmitRequest = () => {
+      if (!selectedRequestDate) return;
+      
+      // Check duplicate
+      const hasPending = requests.some(r => r.fullDate === selectedRequestDate && r.userId === userId && r.status !== 'rejected');
+      const isApproved = dailySchedules.some(s => s.date === selectedRequestDate && s.userId === userId && s.type === 'SundayOff');
+
+      if (hasPending) {
+          alert('Você já possui uma solicitação para esta data.');
+          return;
+      }
+      if (isApproved) {
+          alert('Você já possui folga aprovada para esta data.');
+          return;
+      }
+
+      onRequestOff(selectedRequestDate);
+      setSelectedRequestDate('');
+      alert('Solicitação enviada com sucesso!');
   };
 
   // --- WEEKLY SHIFT EDIT HANDLERS ---
@@ -146,7 +172,7 @@ export const Schedule: React.FC<ScheduleProps> = ({
               return {
                   ...s,
                   startTime: editIsOff ? '-' : editStartTime,
-                  endTime: '-', // Explicitly ignore end time as requested
+                  endTime: '-', 
                   type: editIsOff ? 'Off' : 'Work' as const
               };
           }
@@ -163,7 +189,7 @@ export const Schedule: React.FC<ScheduleProps> = ({
           case 'SundayOff': return 'bg-purple-600 text-white border-purple-600';
           case 'Off': return 'bg-emerald-500 text-white border-emerald-500';
           case 'Vacation': return 'bg-orange-500 text-white border-orange-500';
-          default: return 'bg-blue-600 text-white border-blue-600'; // Default Work
+          default: return 'bg-blue-600 text-white border-blue-600';
       }
   };
 
@@ -178,22 +204,20 @@ export const Schedule: React.FC<ScheduleProps> = ({
   };
 
   // Sort shifts starting from Thursday (Index 4)
-  // Standard Index: 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
-  // Desired Order: Thu, Fri, Sat, Sun, Mon, Tue, Wed
   const dayOrder = [4, 5, 6, 0, 1, 2, 3];
   
   const sortedShifts = [...shifts].sort((a, b) => {
       return dayOrder.indexOf(a.dayIndex) - dayOrder.indexOf(b.dayIndex);
   });
 
-  // Calculate Dates for the Weekly Schedule (Relative to Today)
   const today = new Date();
-  const currentDayIndex = today.getDay(); // 0 (Sun) to 6 (Sat)
-  // We want the cycle to start on Thursday (4).
-  // Find the most recent Thursday (or today if today is Thursday)
+  const currentDayIndex = today.getDay(); 
   const distanceToThursday = (currentDayIndex + 7 - 4) % 7;
   const startOfWeekDate = new Date(today);
   startOfWeekDate.setDate(today.getDate() - distanceToThursday);
+
+  // My Requests List
+  const myRequests = requests.filter(r => r.userId === userId).sort((a,b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
 
   return (
     <div className="space-y-8 animate-fade-in relative">
@@ -244,7 +268,7 @@ export const Schedule: React.FC<ScheduleProps> = ({
            </div>
        )}
 
-       {/* 1. Standard Weekly Schedule - RE-STYLED VERTICAL CAPSULES */}
+       {/* 1. Standard Weekly Schedule */}
        {isWeeklyScheduleEnabled && (
             <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
                 <div className="flex justify-between items-center mb-6">
@@ -252,24 +276,21 @@ export const Schedule: React.FC<ScheduleProps> = ({
                         <Clock size={20} className={`text-${themeColor}-600`} />
                         Escala Padrão
                     </h3>
-                    <div className="flex items-center gap-2">
-                        {isAdmin && (
-                             <span className="text-[10px] text-blue-500 font-bold bg-blue-50 px-2 py-1 rounded-md hidden sm:inline-block">
-                                 Editar
-                             </span>
-                        )}
-                    </div>
+                    {isAdmin && (
+                         <span className="text-[10px] text-blue-500 font-bold bg-blue-50 px-2 py-1 rounded-md hidden sm:inline-block">
+                             Editar
+                         </span>
+                    )}
                 </div>
                 
-                <div className="flex overflow-x-auto pb-4 gap-3 sm:justify-between no-scrollbar px-1">
+                {/* Reduced Gap Here */}
+                <div className="flex overflow-x-auto pb-4 gap-1 sm:justify-between no-scrollbar px-1">
                     {sortedShifts.map((shift, index) => {
-                        // Calculate specific date for this card
                         const shiftDate = new Date(startOfWeekDate);
                         shiftDate.setDate(startOfWeekDate.getDate() + index);
                         
                         const isToday = shiftDate.toDateString() === today.toDateString();
                         const dateNumber = shiftDate.getDate();
-                        // Get 3-letter day name
                         const dayName = shiftDate.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
 
                         return (
@@ -277,7 +298,7 @@ export const Schedule: React.FC<ScheduleProps> = ({
                                 key={shift.id} 
                                 onClick={() => handleShiftClick(shift)}
                                 className={`
-                                    min-w-[70px] sm:min-w-[90px] h-[140px] rounded-[40px] p-2 flex flex-col items-center justify-between transition-all duration-300 border relative group select-none
+                                    min-w-[65px] sm:min-w-[85px] h-[130px] rounded-[30px] p-2 flex flex-col items-center justify-between transition-all duration-300 border relative group select-none
                                     ${isAdmin ? 'cursor-pointer' : ''}
                                     ${isToday 
                                         ? `bg-${themeColor}-500 border-${themeColor}-500 text-white shadow-xl shadow-${themeColor}-200 scale-105 z-10` 
@@ -285,8 +306,7 @@ export const Schedule: React.FC<ScheduleProps> = ({
                                     }
                                 `}
                             >
-                                {/* Top: Day Name */}
-                                <div className="mt-4 flex flex-col items-center">
+                                <div className="mt-3 flex flex-col items-center">
                                     <span className={`text-[10px] font-bold uppercase tracking-wider ${isToday ? 'opacity-80' : 'text-slate-400'}`}>
                                         {dayName}
                                     </span>
@@ -295,20 +315,18 @@ export const Schedule: React.FC<ScheduleProps> = ({
                                     </span>
                                 </div>
 
-                                {/* Bottom: Time Pill */}
                                 <div className={`
-                                    mb-2 px-3 py-2 w-full text-center rounded-[20px] text-[10px] font-bold uppercase tracking-wide
+                                    mb-2 px-1 w-full text-center rounded-[20px] text-[11px] font-bold uppercase tracking-wide
                                     ${isToday 
-                                        ? 'bg-white text-slate-900 shadow-sm' 
-                                        : 'bg-slate-100 text-slate-600'
+                                        ? 'text-white' 
+                                        : 'text-slate-700'
                                     }
                                 `}>
                                     {shift.type === 'Off' ? 'Folga' : shift.startTime}
                                 </div>
 
-                                {/* Edit Hint Overlay */}
                                 {isAdmin && (
-                                    <div className="absolute inset-0 rounded-[40px] bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                    <div className="absolute inset-0 rounded-[30px] bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                         <div className="bg-white p-2 rounded-full shadow-sm">
                                             <Edit2 size={12} className="text-slate-800" />
                                         </div>
@@ -321,14 +339,106 @@ export const Schedule: React.FC<ScheduleProps> = ({
             </div>
         )}
 
-       {/* 2. Monthly Calendar Header */}
+       {/* 2. SUNDAY REQUEST SECTION (Employee Only) */}
+       {(!isAdmin && isSundayOffEnabled) && (
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+               {/* Request Form */}
+               <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                   <div className="flex items-center gap-2 mb-4">
+                       <div className={`p-2 rounded-lg bg-${themeColor}-50`}>
+                           <Calendar size={18} className={`text-${themeColor}-600`} />
+                       </div>
+                       <h3 className="font-bold text-slate-800 text-sm">Solicitar Folga Dominical</h3>
+                   </div>
+                   
+                   <div className="space-y-4">
+                       <div>
+                           <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Selecione o Domingo</label>
+                           <select 
+                                value={selectedRequestDate}
+                                onChange={(e) => setSelectedRequestDate(e.target.value)}
+                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm text-slate-700 cursor-pointer"
+                           >
+                               <option value="">Selecione uma data...</option>
+                               {availableSundays.map((date) => {
+                                   const dateStr = date.toISOString().split('T')[0];
+                                   const display = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                                   // Check if status exists
+                                   const existing = requests.find(r => r.fullDate === dateStr && r.userId === userId && r.status !== 'rejected');
+                                   const label = existing ? `${display} (${existing.status === 'pending' ? 'Pendente' : 'Aprovado'})` : display;
+                                   
+                                   return (
+                                       <option key={dateStr} value={dateStr} disabled={!!existing}>
+                                           {label}
+                                       </option>
+                                   );
+                               })}
+                           </select>
+                       </div>
+
+                       <button 
+                            onClick={handleSubmitRequest}
+                            disabled={!selectedRequestDate}
+                            className={`w-full py-2.5 rounded-xl font-bold text-sm text-white transition-all flex items-center justify-center gap-2 shadow-md
+                                ${selectedRequestDate ? `bg-${themeColor}-600 hover:bg-${themeColor}-700` : 'bg-slate-300 cursor-not-allowed shadow-none'}
+                            `}
+                       >
+                           <Send size={16} />
+                           Enviar Solicitação
+                       </button>
+                   </div>
+               </div>
+
+               {/* My Requests List */}
+               <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col">
+                   <h3 className="font-bold text-slate-800 text-sm mb-4">Minhas Solicitações</h3>
+                   
+                   <div className="flex-1 overflow-y-auto max-h-[160px] pr-1 space-y-2 custom-scrollbar">
+                       {myRequests.length === 0 ? (
+                           <p className="text-xs text-slate-400 text-center py-4 italic">Nenhuma solicitação recente.</p>
+                       ) : (
+                           myRequests.map(req => (
+                               <div key={req.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-100">
+                                   <div className="flex items-center gap-3">
+                                        <div className="bg-white p-1.5 rounded-md shadow-sm border border-slate-100">
+                                            <Calendar size={14} className="text-slate-500" />
+                                        </div>
+                                        <div>
+                                            <span className="block text-xs font-bold text-slate-700">{req.date}</span>
+                                            <span className="block text-[9px] text-slate-400">Enviado em {req.requestDate}</span>
+                                        </div>
+                                   </div>
+                                   <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase
+                                        ${req.status === 'approved' ? 'bg-green-100 text-green-700' : 
+                                          req.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}
+                                   `}>
+                                       {req.status === 'pending' ? 'Pendente' : req.status === 'approved' ? 'Aprovada' : 'Recusada'}
+                                   </span>
+                               </div>
+                           ))
+                       )}
+                   </div>
+               </div>
+           </div>
+       )}
+
+       {/* 3. Monthly Calendar Header */}
        <div className="flex flex-col md:flex-row justify-between items-end gap-4 mt-8">
          <div>
+            {/* User Info Header */}
+            {currentUserObj && (
+                <div className="flex items-center gap-2 mb-1">
+                    <UserIcon size={14} className="text-slate-400" />
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">
+                        {currentUserObj.name} • {currentUserObj.jobTitle || 'Funcionário'}
+                    </span>
+                </div>
+            )}
             <h2 className="text-xl font-bold text-slate-800">Escala Mensal</h2>
             <p className="text-sm text-slate-500">
                 {isAdmin 
                     ? 'Clique nos dias para alternar status.' 
-                    : 'Visualize seus horários e folgas do mês.'}
+                    : 'Visualize seus horários.'}
             </p>
          </div>
          
@@ -367,7 +477,7 @@ export const Schedule: React.FC<ScheduleProps> = ({
          </div>
        </div>
 
-        {/* 3. Calendar Content or Lock Logic */}
+        {/* 4. Calendar Content or Lock Logic */}
         {!isAdmin && !isPublished ? (
             <div className="bg-white rounded-2xl p-12 text-center border border-slate-100 shadow-sm flex flex-col items-center justify-center min-h-[400px]">
                 <div className={`bg-${themeColor}-50 p-6 rounded-full mb-6`}>
@@ -398,18 +508,16 @@ export const Schedule: React.FC<ScheduleProps> = ({
                             {/* Days */}
                             {Array.from({ length: daysInMonth }).map((_, i) => {
                                 const day = i + 1;
-                                const schedules = getDaySchedules(day);
-                                // For admin, show current user context (userId) toggle status to allow editing "their" view or the main view logic
-                                const userSchedule = dailySchedules.find(s => s.date === `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` && s.userId === userId);
+                                const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                                const reqDateStr = formatRequestDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), day));
+                                
+                                const userSchedule = dailySchedules.find(s => s.date === dateStr && s.userId === userId);
                                 
                                 const dayDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
                                 const dayOfWeek = dayDate.getDay();
-                                const isSunday = dayOfWeek === 0;
                                 const weekDayName = dayDate.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '').toUpperCase();
 
-                                // Check for pending request to highlight
-                                const reqDateStr = formatRequestDate(day);
-                                const hasPendingRequest = requests.some(r => r.date === reqDateStr && (isAdmin || r.userId === userId) && r.status === 'pending');
+                                const hasPendingRequest = requests.some(r => (r.fullDate === dateStr || r.date === reqDateStr) && (isAdmin || r.userId === userId) && r.status === 'pending');
 
                                 // Default Styling - Start with WORK (Blue) as default for everyone
                                 let cellClass = getStatusColorClass('Work');
@@ -438,7 +546,7 @@ export const Schedule: React.FC<ScheduleProps> = ({
                                         
                                         <div className="flex-1 flex items-center justify-center flex-col overflow-hidden">
                                             <span className="font-bold text-[10px] sm:text-xs tracking-wide uppercase text-center break-words w-full">
-                                                {statusText}
+                                                {hasPendingRequest ? 'SOLICITADO' : statusText}
                                             </span>
                                         </div>
                                     </div>
@@ -452,7 +560,7 @@ export const Schedule: React.FC<ScheduleProps> = ({
                         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                             <div className="flex flex-wrap justify-center gap-4 text-[10px] font-bold text-slate-500 uppercase tracking-wide">
                                 <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-blue-600"></span>Trabalho</div>
-                                <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-purple-600"></span>Folga Domingo</div>
+                                <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-purple-600"></span>Folga Dom</div>
                                 <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-emerald-500"></span>Folga Semanal</div>
                                 <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-orange-500"></span>Férias</div>
                                 <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-transparent border-2 border-yellow-400"></span>Solicitação Pendente</div>
@@ -460,7 +568,7 @@ export const Schedule: React.FC<ScheduleProps> = ({
                             
                             <div className="hidden sm:flex items-center text-slate-400 text-xs">
                                 <MousePointer2 size={12} className="mr-1.5" />
-                                {isAdmin ? 'Clique para alternar status' : 'Arraste para ver completo'}
+                                {isAdmin ? 'Clique para alternar status' : 'Visualize sua escala'}
                             </div>
                         </div>
                     </div>

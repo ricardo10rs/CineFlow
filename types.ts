@@ -66,6 +66,7 @@ export interface DocumentItem extends BaseItem {
   type: ContentType.PDF | ContentType.IMAGE;
   description: string;
   url: string;
+  targetUserId?: string; // Add this if documents can also be private
 }
 
 export type AppItem = AnnouncementItem | DocumentItem;
@@ -97,7 +98,8 @@ export interface OffRequest {
   branchId: string;
   userId: string;
   userName: string;
-  date: string; // DD/MM
+  date: string; // DD/MM (Display purposes)
+  fullDate?: string; // YYYY-MM-DD (Logic purposes)
   status: 'pending' | 'approved' | 'rejected';
   requestDate: string;
   resolutionDate?: string;
