@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { WorkShift, DailySchedule, ThemeColor, UserRole, User, OffRequest } from '../types';
-import { Calendar, ChevronLeft, ChevronRight, Clock, AlertCircle, CheckCircle2, Lock, MousePointer2, Trash2, Edit2, X, Save, User as UserIcon, Send, Search } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Clock, AlertCircle, CheckCircle2, Lock, MousePointer2, Trash2, Edit2, X, Save, User as UserIcon, Send, Search, Eye, EyeOff } from 'lucide-react';
 
 interface ScheduleProps {
   shifts: WorkShift[];
@@ -40,7 +40,8 @@ export const Schedule: React.FC<ScheduleProps> = ({
   onTogglePublish,
   isSundayOffEnabled,
   isWeeklyScheduleEnabled,
-  onUpdateDailySchedule
+  onUpdateDailySchedule,
+  onToggleUserWeeklySchedule
 }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   
@@ -146,16 +147,31 @@ export const Schedule: React.FC<ScheduleProps> = ({
   const handleSubmitRequest = () => {
       if (!selectedRequestDate) return;
       
-      // Check duplicate
-      const hasPending = requests.some(r => r.fullDate === selectedRequestDate && r.userId === userId && r.status !== 'rejected');
-      const isApproved = dailySchedules.some(s => s.date === selectedRequestDate && s.userId === userId && s.type === 'SundayOff');
+      // Check duplicate for SPECIFIC DATE
+      const hasPendingSameDate = requests.some(r => r.fullDate === selectedRequestDate && r.userId === userId && r.status !== 'rejected');
+      const isApprovedSameDate = dailySchedules.some(s => s.date === selectedRequestDate && s.userId === userId && s.type === 'SundayOff');
 
-      if (hasPending) {
+      if (hasPendingSameDate) {
           alert('Você já possui uma solicitação para esta data.');
           return;
       }
-      if (isApproved) {
+      if (isApprovedSameDate) {
           alert('Você já possui folga aprovada para esta data.');
+          return;
+      }
+
+      // Check limit: ONE request per month
+      const [selYear, selMonth] = selectedRequestDate.split('-').map(Number);
+      const hasActiveRequestInMonth = requests.some(r => {
+          if (r.userId !== userId || r.status === 'rejected') return false;
+          // Parse the request date
+          if (!r.fullDate) return false;
+          const [rYear, rMonth] = r.fullDate.split('-').map(Number);
+          return rYear === selYear && rMonth === selMonth;
+      });
+
+      if (hasActiveRequestInMonth) {
+          alert('Não é possível enviar mais de uma solicitação de folga dominical por mês.');
           return;
       }
 
@@ -280,12 +296,13 @@ export const Schedule: React.FC<ScheduleProps> = ({
        )}
 
        {/* 1. Standard Weekly Schedule */}
-       {isWeeklyScheduleEnabled && (
+       {/* Always visible to Admin. For employees, check setting and individual hide flag. */}
+       {(isAdmin || (isWeeklyScheduleEnabled && !effectiveUserObj?.hideWeeklySchedule)) && (
             <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
                 <div className="flex justify-between items-center mb-6">
                     <h3 className="font-bold text-slate-800 flex items-center gap-2">
                         <Clock size={20} className={`text-${themeColor}-600`} />
-                        Escala Padrão
+                        Escala da Semana
                     </h3>
                     {isAdmin && (
                          <span className="text-[10px] text-blue-500 font-bold bg-blue-50 px-2 py-1 rounded-md hidden sm:inline-block">
@@ -294,7 +311,8 @@ export const Schedule: React.FC<ScheduleProps> = ({
                     )}
                 </div>
                 
-                <div className="flex overflow-x-auto pb-4 gap-1 sm:justify-between no-scrollbar px-1">
+                {/* Updated Spacing: justify-between sm:justify-center and gap-1 */}
+                <div className="flex overflow-x-auto pb-2 gap-1 justify-between sm:justify-center no-scrollbar px-1">
                     {sortedShifts.map((shift, index) => {
                         const shiftDate = new Date(startOfWeekDate);
                         shiftDate.setDate(startOfWeekDate.getDate() + index);
@@ -308,37 +326,37 @@ export const Schedule: React.FC<ScheduleProps> = ({
                                 key={shift.id} 
                                 onClick={() => handleShiftClick(shift)}
                                 className={`
-                                    min-w-[65px] sm:min-w-[85px] h-[130px] rounded-[30px] p-2 flex flex-col items-center justify-between transition-all duration-300 border relative group select-none
-                                    ${isAdmin ? 'cursor-pointer' : ''}
+                                    min-w-[50px] sm:min-w-[70px] h-[110px] rounded-[20px] p-1.5 flex flex-col items-center justify-between transition-all duration-300 border relative group select-none
+                                    ${isAdmin ? 'cursor-pointer hover:border-blue-300' : ''}
                                     ${isToday 
-                                        ? `bg-${themeColor}-500 border-${themeColor}-500 text-white shadow-xl shadow-${themeColor}-200 scale-105 z-10` 
-                                        : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
+                                        ? `bg-${themeColor}-500 border-${themeColor}-500 text-white shadow-lg shadow-${themeColor}-200 scale-100 z-10` 
+                                        : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
                                     }
                                 `}
                             >
-                                <div className="mt-3 flex flex-col items-center">
-                                    <span className={`text-[10px] font-bold uppercase tracking-wider ${isToday ? 'opacity-80' : 'text-slate-400'}`}>
+                                <div className="mt-2 flex flex-col items-center">
+                                    <span className={`text-[9px] font-bold uppercase tracking-wider ${isToday ? 'opacity-80' : 'text-slate-400'}`}>
                                         {dayName}
                                     </span>
-                                    <span className={`text-xl font-bold ${isToday ? 'text-white' : 'text-slate-800'}`}>
+                                    <span className={`text-lg font-bold ${isToday ? 'text-white' : 'text-slate-800'}`}>
                                         {dateNumber}
                                     </span>
                                 </div>
 
                                 <div className={`
-                                    mb-2 px-1 w-full text-center rounded-[20px] text-[11px] font-bold uppercase tracking-wide
+                                    mb-2 px-1 w-full text-center rounded-[12px] text-[9px] font-bold uppercase tracking-wide
                                     ${isToday 
                                         ? 'text-white' 
                                         : 'text-slate-700'
                                     }
                                 `}>
-                                    {shift.type === 'Off' ? 'Folga' : shift.startTime}
+                                    {shift.type === 'Off' ? 'Fechado' : shift.startTime}
                                 </div>
 
                                 {isAdmin && (
-                                    <div className="absolute inset-0 rounded-[30px] bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                        <div className="bg-white p-2 rounded-full shadow-sm">
-                                            <Edit2 size={12} className="text-slate-800" />
+                                    <div className="absolute inset-0 rounded-[20px] bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                                        <div className="bg-white p-1 rounded-full shadow-sm">
+                                            <Edit2 size={10} className="text-slate-800" />
                                         </div>
                                     </div>
                                 )}
@@ -349,113 +367,37 @@ export const Schedule: React.FC<ScheduleProps> = ({
             </div>
         )}
 
-       {/* 2. SUNDAY REQUEST SECTION (Employee Only) */}
-       {(!isAdmin && isSundayOffEnabled) && (
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-               {/* Request Form */}
-               <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                   <div className="flex items-center gap-2 mb-4">
-                       <div className={`p-2 rounded-lg bg-${themeColor}-50`}>
-                           <Calendar size={18} className={`text-${themeColor}-600`} />
-                       </div>
-                       <h3 className="font-bold text-slate-800 text-sm">Folga Dominical ({nextMonthName})</h3>
-                   </div>
-                   
-                   <div className="space-y-4">
-                       <div>
-                           <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Selecione o Domingo</label>
-                           <select 
-                                value={selectedRequestDate}
-                                onChange={(e) => setSelectedRequestDate(e.target.value)}
-                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm text-slate-700 cursor-pointer"
-                           >
-                               <option value="">Selecione uma data...</option>
-                               {availableSundays.map((date) => {
-                                   const dateStr = date.toISOString().split('T')[0];
-                                   const display = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-                                   // Check if status exists
-                                   const existing = requests.find(r => r.fullDate === dateStr && r.userId === userId && r.status !== 'rejected');
-                                   const label = existing ? `${display} (${existing.status === 'pending' ? 'Pendente' : 'Aprovado'})` : display;
-                                   
-                                   return (
-                                       <option key={dateStr} value={dateStr} disabled={!!existing}>
-                                           {label}
-                                       </option>
-                                   );
-                               })}
-                           </select>
-                           {availableSundays.length === 0 && (
-                               <p className="text-[10px] text-orange-500 mt-1">Não há domingos disponíveis no próximo mês.</p>
-                           )}
-                       </div>
-
-                       <button 
-                            onClick={handleSubmitRequest}
-                            disabled={!selectedRequestDate}
-                            className={`w-full py-2.5 rounded-xl font-bold text-sm text-white transition-all flex items-center justify-center gap-2 shadow-md
-                                ${selectedRequestDate ? `bg-${themeColor}-600 hover:bg-${themeColor}-700` : 'bg-slate-300 cursor-not-allowed shadow-none'}
-                            `}
-                       >
-                           <Send size={16} />
-                           Enviar Solicitação
-                       </button>
-                   </div>
-               </div>
-
-               {/* My Requests List */}
-               <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col">
-                   <h3 className="font-bold text-slate-800 text-sm mb-4">Minhas Solicitações</h3>
-                   
-                   <div className="flex-1 overflow-y-auto max-h-[160px] pr-1 space-y-2 custom-scrollbar">
-                       {myRequests.length === 0 ? (
-                           <p className="text-xs text-slate-400 text-center py-4 italic">Nenhuma solicitação recente.</p>
-                       ) : (
-                           myRequests.map(req => (
-                               <div key={req.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-100">
-                                   <div className="flex items-center gap-3">
-                                        <div className="bg-white p-1.5 rounded-md shadow-sm border border-slate-100">
-                                            <Calendar size={14} className="text-slate-500" />
-                                        </div>
-                                        <div>
-                                            <span className="block text-xs font-bold text-slate-700">{req.date}</span>
-                                            <span className="block text-[9px] text-slate-400">Enviado em {req.requestDate}</span>
-                                        </div>
-                                   </div>
-                                   <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase
-                                        ${req.status === 'approved' ? 'bg-green-100 text-green-700' : 
-                                          req.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}
-                                   `}>
-                                       {req.status === 'pending' ? 'Pendente' : req.status === 'approved' ? 'Aprovada' : 'Recusada'}
-                                   </span>
-                               </div>
-                           ))
-                       )}
-                   </div>
-               </div>
-           </div>
-       )}
-
-       {/* 3. Monthly Calendar Header */}
+       {/* 2. Monthly Calendar Header */}
        <div className="flex flex-col md:flex-row justify-between items-end gap-4 mt-8">
          <div className="w-full md:w-auto">
             <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
                 Escala Mensal
                 {isAdmin && (
-                    <div className="ml-2 relative group">
-                         <select
-                            value={viewUserId}
-                            onChange={(e) => setViewUserId(e.target.value)}
-                            className="appearance-none bg-blue-50 border border-blue-200 text-blue-700 text-sm font-bold py-1.5 pl-3 pr-8 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                         >
-                            {/* Option for the admin themselves if they want to edit their own */}
-                            <option value={userId}>Minha Escala</option>
-                            {selectableUsers.map(u => (
-                                <option key={u.id} value={u.id}>{u.name}</option>
-                            ))}
-                         </select>
-                         <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-blue-500">
-                            <ChevronRight size={14} className="rotate-90" />
+                    <div className="ml-2 flex items-center gap-2">
+                         <div className="relative group">
+                            <select
+                                value={viewUserId}
+                                onChange={(e) => setViewUserId(e.target.value)}
+                                className="appearance-none bg-blue-50 border border-blue-200 text-blue-700 text-sm font-bold py-1.5 pl-3 pr-8 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                            >
+                                <option value={userId}>Minha Escala</option>
+                                {selectableUsers.map(u => (
+                                    <option key={u.id} value={u.id}>{u.name}</option>
+                                ))}
+                            </select>
+                            <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-blue-500">
+                                <ChevronRight size={14} className="rotate-90" />
+                            </div>
                          </div>
+                         
+                         {/* Toggle Weekly Schedule Visibility for Specific User */}
+                         <button 
+                            onClick={() => onToggleUserWeeklySchedule(viewUserId)}
+                            className={`p-1.5 rounded-lg border transition-all ${effectiveUserObj?.hideWeeklySchedule ? 'bg-slate-100 text-slate-400 border-slate-200' : `bg-${themeColor}-100 text-${themeColor}-600 border-${themeColor}-200`}`}
+                            title={effectiveUserObj?.hideWeeklySchedule ? "Exibir escala semanal para este usuário" : "Ocultar escala semanal para este usuário"}
+                         >
+                            {effectiveUserObj?.hideWeeklySchedule ? <EyeOff size={18} /> : <Eye size={18} />}
+                         </button>
                     </div>
                 )}
             </h2>
@@ -505,16 +447,15 @@ export const Schedule: React.FC<ScheduleProps> = ({
          </div>
        </div>
 
-        {/* 4. Calendar Content or Lock Logic */}
+        {/* 3. Calendar Content or Lock Logic */}
         {!isAdmin && !isPublished ? (
             <div className="bg-white rounded-2xl p-12 text-center border border-slate-100 shadow-sm flex flex-col items-center justify-center min-h-[400px]">
                 <div className={`bg-${themeColor}-50 p-6 rounded-full mb-6`}>
                     <Lock size={48} className={`text-${themeColor}-300`} />
                 </div>
-                <h3 className="text-xl font-bold text-slate-800 mb-2">Escala em Definição</h3>
+                <h3 className="text-xl font-bold text-slate-800 mb-2">Escala em Processamento pelo Administrador</h3>
                 <p className="text-slate-500 max-w-md mx-auto">
-                A escala para <span className="font-bold text-slate-700">{currentDate.toLocaleDateString('pt-BR', { month: 'long' })}</span> ainda está sendo ajustada pela gerência. 
-                Você receberá uma notificação assim que estiver disponível.
+                O Administrador está realizando os ajustes finais na escala de <span className="font-bold text-slate-700">{currentDate.toLocaleDateString('pt-BR', { month: 'long' })}</span>. A visualização estará disponível em breve.
                 </p>
             </div>
         ) : (
@@ -605,6 +546,92 @@ export const Schedule: React.FC<ScheduleProps> = ({
                 </div>
             </>
         )}
+
+        {/* 4. SUNDAY REQUEST SECTION (Employee Only) - MOVED BELOW CALENDAR */}
+       {(!isAdmin && isSundayOffEnabled) && (
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8 border-t border-slate-100 pt-8">
+               {/* Request Form */}
+               <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                   <div className="flex items-center gap-2 mb-4">
+                       <div className={`p-2 rounded-lg bg-${themeColor}-50`}>
+                           <Calendar size={18} className={`text-${themeColor}-600`} />
+                       </div>
+                       <h3 className="font-bold text-slate-800 text-sm">Folga Dominical ({nextMonthName})</h3>
+                   </div>
+                   
+                   <div className="space-y-4">
+                       <div>
+                           <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Selecione o Domingo</label>
+                           <select 
+                                value={selectedRequestDate}
+                                onChange={(e) => setSelectedRequestDate(e.target.value)}
+                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm text-slate-700 cursor-pointer"
+                           >
+                               <option value="">Selecione uma data...</option>
+                               {availableSundays.map((date) => {
+                                   const dateStr = date.toISOString().split('T')[0];
+                                   const display = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                                   // Check if status exists
+                                   const existing = requests.find(r => r.fullDate === dateStr && r.userId === userId && r.status !== 'rejected');
+                                   const label = existing ? `${display} (${existing.status === 'pending' ? 'Pendente' : 'Aprovado'})` : display;
+                                   
+                                   return (
+                                       <option key={dateStr} value={dateStr} disabled={!!existing}>
+                                           {label}
+                                       </option>
+                                   );
+                               })}
+                           </select>
+                           {availableSundays.length === 0 && (
+                               <p className="text-[10px] text-orange-500 mt-1">Não há domingos disponíveis no próximo mês.</p>
+                           )}
+                       </div>
+
+                       <button 
+                            onClick={handleSubmitRequest}
+                            disabled={!selectedRequestDate}
+                            className={`w-full py-2.5 rounded-xl font-bold text-sm text-white transition-all flex items-center justify-center gap-2 shadow-md
+                                ${selectedRequestDate ? `bg-${themeColor}-600 hover:bg-${themeColor}-700` : 'bg-slate-300 cursor-not-allowed shadow-none'}
+                            `}
+                       >
+                           <Send size={16} />
+                           Enviar Solicitação
+                       </button>
+                   </div>
+               </div>
+
+               {/* My Requests List */}
+               <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col">
+                   <h3 className="font-bold text-slate-800 text-sm mb-4">Minhas Solicitações</h3>
+                   
+                   <div className="flex-1 overflow-y-auto max-h-[160px] pr-1 space-y-2 custom-scrollbar">
+                       {myRequests.length === 0 ? (
+                           <p className="text-xs text-slate-400 text-center py-4 italic">Nenhuma solicitação recente.</p>
+                       ) : (
+                           myRequests.map(req => (
+                               <div key={req.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-100">
+                                   <div className="flex items-center gap-3">
+                                        <div className="bg-white p-1.5 rounded-md shadow-sm border border-slate-100">
+                                            <Calendar size={14} className="text-slate-500" />
+                                        </div>
+                                        <div>
+                                            <span className="block text-xs font-bold text-slate-700">{req.date}</span>
+                                            <span className="block text-[9px] text-slate-400">Enviado em {req.requestDate}</span>
+                                        </div>
+                                   </div>
+                                   <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase
+                                        ${req.status === 'approved' ? 'bg-green-100 text-green-700' : 
+                                          req.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}
+                                   `}>
+                                       {req.status === 'pending' ? 'Pendente' : req.status === 'approved' ? 'Aprovada' : 'Recusada'}
+                                   </span>
+                               </div>
+                           ))
+                       )}
+                   </div>
+               </div>
+           </div>
+       )}
 
         {/* Requests Section (Admin) */}
         {isAdmin && requests.length > 0 && (
