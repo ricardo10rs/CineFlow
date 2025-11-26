@@ -1,7 +1,7 @@
 
 import React, { useRef } from 'react';
 import { ThemeColor, User } from '../types';
-import { Check, Palette, Shield, CalendarOff, ToggleLeft, ToggleRight, Bell, Mail, MessageSquare, UserCircle, Camera, Clock } from 'lucide-react';
+import { Check, Palette, Shield, CalendarOff, Bell, Mail, MessageSquare, UserCircle, Camera, Clock } from 'lucide-react';
 
 interface SettingsProps {
   user: User;
@@ -15,6 +15,46 @@ interface SettingsProps {
   isMessagesTabEnabled?: boolean;
   onToggleMessagesTab?: () => void;
 }
+
+// Custom Toggle Component to match the design request
+const CustomSwitch = ({ checked, onChange, themeColor }: { checked: boolean, onChange: () => void, themeColor: ThemeColor }) => (
+  <button 
+    onClick={onChange}
+    className={`
+      relative w-16 h-8 rounded-full transition-colors duration-300 ease-in-out shadow-inner focus:outline-none
+      ${checked ? `bg-${themeColor}-600` : 'bg-slate-300'}
+    `}
+  >
+    {/* Text Labels */}
+    <span 
+      className={`
+        absolute top-1/2 -translate-y-1/2 left-2 text-[10px] font-bold text-white tracking-widest transition-opacity duration-300
+        ${checked ? 'opacity-100' : 'opacity-0'}
+      `}
+    >
+      ON
+    </span>
+    <span 
+      className={`
+        absolute top-1/2 -translate-y-1/2 right-2 text-[10px] font-bold text-slate-500 tracking-widest transition-opacity duration-300
+        ${checked ? 'opacity-0' : 'opacity-100'}
+      `}
+    >
+      OFF
+    </span>
+
+    {/* The Knob */}
+    <div 
+      className={`
+        absolute top-1 bottom-1 w-6 h-6 rounded-full shadow-md transition-transform duration-300 ease-in-out flex items-center justify-center
+        ${checked ? 'translate-x-9 bg-white' : 'translate-x-1 bg-white'}
+      `}
+    >
+        {/* Optional: Small colored dot inside knob for detail */}
+        {checked && <div className={`w-1.5 h-1.5 rounded-full bg-${themeColor}-600`}></div>}
+    </div>
+  </button>
+);
 
 export const Settings: React.FC<SettingsProps> = ({ 
   user, 
@@ -124,16 +164,11 @@ export const Settings: React.FC<SettingsProps> = ({
                      </div>
                   </div>
                   
-                  <button 
-                    onClick={onToggleSundayOff}
-                    className={`transition-all duration-300 ${isSundayOffEnabled ? 'text-green-500' : 'text-slate-400'}`}
-                  >
-                    {isSundayOffEnabled ? (
-                      <ToggleRight size={40} fill="currentColor" className="opacity-100" />
-                    ) : (
-                      <ToggleLeft size={40} className="opacity-100" />
-                    )}
-                  </button>
+                  <CustomSwitch 
+                    checked={isSundayOffEnabled} 
+                    onChange={onToggleSundayOff} 
+                    themeColor={currentTheme} 
+                  />
                </div>
              )}
 
@@ -149,16 +184,11 @@ export const Settings: React.FC<SettingsProps> = ({
                       </div>
                   </div>
                   
-                  <button 
-                    onClick={onToggleWeeklySchedule}
-                    className={`transition-all duration-300 ${isWeeklyScheduleEnabled ? 'text-green-500' : 'text-slate-400'}`}
-                  >
-                    {isWeeklyScheduleEnabled ? (
-                      <ToggleRight size={40} fill="currentColor" className="opacity-100" />
-                    ) : (
-                      <ToggleLeft size={40} className="opacity-100" />
-                    )}
-                  </button>
+                  <CustomSwitch 
+                    checked={isWeeklyScheduleEnabled} 
+                    onChange={onToggleWeeklySchedule} 
+                    themeColor={currentTheme} 
+                  />
                 </div>
              )}
 
@@ -174,16 +204,11 @@ export const Settings: React.FC<SettingsProps> = ({
                       </div>
                   </div>
                   
-                  <button 
-                    onClick={onToggleMessagesTab}
-                    className={`transition-all duration-300 ${isMessagesTabEnabled ? 'text-green-500' : 'text-slate-400'}`}
-                  >
-                    {isMessagesTabEnabled ? (
-                      <ToggleRight size={40} fill="currentColor" className="opacity-100" />
-                    ) : (
-                      <ToggleLeft size={40} className="opacity-100" />
-                    )}
-                  </button>
+                  <CustomSwitch 
+                    checked={isMessagesTabEnabled} 
+                    onChange={onToggleMessagesTab} 
+                    themeColor={currentTheme} 
+                  />
                 </div>
              )}
           </div>
@@ -207,6 +232,7 @@ export const Settings: React.FC<SettingsProps> = ({
                     <Mail size={18} className="text-slate-400" />
                     <span className="text-sm font-medium text-slate-600">Alertas por Email</span>
                 </div>
+                {/* Visual toggle only for notifications section */}
                 <div className="relative inline-block w-10 h-5 transition duration-200 ease-in-out rounded-full cursor-pointer bg-blue-600">
                      <span className="absolute left-0 inline-block w-5 h-5 bg-white border border-gray-300 rounded-full shadow transform translate-x-5 transition-transform duration-200 ease-in-out"></span>
                 </div>
@@ -217,6 +243,7 @@ export const Settings: React.FC<SettingsProps> = ({
                     <MessageSquare size={18} className="text-slate-400" />
                     <span className="text-sm font-medium text-slate-600">Alertas por SMS (Celular)</span>
                 </div>
+                {/* Visual toggle only for notifications section */}
                 <div className="relative inline-block w-10 h-5 transition duration-200 ease-in-out rounded-full cursor-pointer bg-blue-600">
                      <span className="absolute left-0 inline-block w-5 h-5 bg-white border border-gray-300 rounded-full shadow transform translate-x-5 transition-transform duration-200 ease-in-out"></span>
                 </div>

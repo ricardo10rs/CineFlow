@@ -36,6 +36,8 @@ export interface User {
   hideWeeklySchedule?: boolean; // Nova propriedade para ocultar escala individualmente
   vacationReturnDate?: string; // NEW: Data de retorno das férias (YYYY-MM-DD)
   gender?: 'male' | 'female'; // NEW: Gender for UI customization
+  hasQrCodeAccess?: boolean; // NEW: Control access to QR Code tab
+  qrCodeImage?: string; // NEW: Individual QR Code image (Base64)
 }
 
 export interface AIAnalysis {

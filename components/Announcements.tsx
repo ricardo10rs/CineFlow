@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { AnnouncementItem, ThemeColor, UserRole, DirectMessage, User } from '../types';
 import { Calendar, Trash2, Clock, UserCircle, CheckCircle2, Layout, AlertCircle, MessageCircle, Send, FileText, Image as ImageIcon, Coffee, Sparkles, Sun, Smile, Plus, X, Paperclip, Search } from 'lucide-react';
 
@@ -22,7 +22,7 @@ interface AnnouncementsProps {
 }
 
 // Internal component for Gender-based Flat Illustrations
-const RelaxedIllustration = ({ gender, themeColor }: { gender?: string, themeColor: ThemeColor }) => {
+const RelaxedIllustration = ({ gender, themeColor, variant = 1 }: { gender?: string, themeColor: ThemeColor, variant?: number }) => {
     
     // Helper to map theme names to hex colors for SVG usage
     const getThemeHex = (shade: number) => {
@@ -44,16 +44,77 @@ const RelaxedIllustration = ({ gender, themeColor }: { gender?: string, themeCol
     const skinBaseM = "#EACBAA"; // Neutral
     const skinShadowM = "#D6B08C";
     const hairColor = "#2c2c2c";
-    
-    // FEMALE ILLUSTRATION - Realistic Style (Yoga/Nature)
+
+    // --- FEMALE ILLUSTRATIONS ---
     if (gender === 'female') {
+        if (variant === 2) {
+             // VARIANT 2: Standing with Coffee (Stylish)
+             return (
+                <svg width="340" height="280" viewBox="0 0 340 280" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id={`coat-${themeColor}`} x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stopColor={getThemeHex(500)} />
+                            <stop offset="100%" stopColor={getThemeHex(700)} />
+                        </linearGradient>
+                    </defs>
+                    
+                    {/* Shadow */}
+                    <ellipse cx="170" cy="255" rx="50" ry="8" fill={getThemeHex(900)} opacity="0.1" />
+
+                    {/* Background Element: Tall Plant Right */}
+                    <g transform="translate(230, 80)">
+                        <path d="M10 180 L 15 200 L 45 200 L 50 180 Z" fill="#9CA3AF" />
+                        <path d="M30 180 Q 30 100 10 50" stroke="#166534" strokeWidth="2" fill="none" />
+                        <ellipse cx="10" cy="50" rx="15" ry="25" fill="#16a34a" transform="rotate(-20)" />
+                        <ellipse cx="30" cy="80" rx="15" ry="25" fill="#15803d" transform="rotate(20)" />
+                        <ellipse cx="15" cy="110" rx="15" ry="20" fill="#22c55e" transform="rotate(-10)" />
+                    </g>
+
+                    {/* Character Group */}
+                    <g transform="translate(130, 30)">
+                         {/* Legs */}
+                         <path d="M30 150 L 25 220 L 15 225" stroke="#374151" strokeWidth="18" strokeLinecap="round" fill="none" /> {/* Left Leg */}
+                         <path d="M50 150 L 55 220 L 65 225" stroke="#1f2937" strokeWidth="18" strokeLinecap="round" fill="none" /> {/* Right Leg */}
+                         
+                         {/* Shoes */}
+                         <path d="M5 225 L 25 225 L 25 232 L 5 232 Z" fill="#111827" />
+                         <path d="M55 225 L 75 225 L 75 232 L 55 232 Z" fill="#111827" />
+
+                         {/* Coat/Dress */}
+                         <path d="M20 160 L 15 90 C 15 80, 65 80, 65 90 L 60 160 L 70 200 L 10 200 L 20 160 Z" fill={`url(#coat-${themeColor})`} />
+                         <path d="M40 90 L 40 200" stroke="rgba(0,0,0,0.1)" strokeWidth="1" /> {/* Coat opening line */}
+                         
+                         {/* Neck */}
+                         <rect x="33" y="75" width="14" height="15" fill={skinBaseF} />
+
+                         {/* Head */}
+                         <ellipse cx="40" cy="65" rx="14" ry="18" fill={skinBaseF} />
+                         <path d="M38 68 Q 40 66 42 68" stroke="#8B5E3C" strokeWidth="1" fill="none" /> {/* Eye */}
+                         <path d="M38 72 Q 41 74 44 72" stroke="#D97757" strokeWidth="1" /> {/* Mouth */}
+
+                         {/* Hair (Short Bob) */}
+                         <path d="M40 45 C 25 45, 20 60, 20 70 L 20 75 L 60 75 L 60 70 C 60 60, 55 45, 40 45" fill={hairColor} />
+                         
+                         {/* Arm (Holding Coffee) */}
+                         <path d="M20 100 Q 10 130 35 120" stroke={`url(#coat-${themeColor})`} strokeWidth="14" strokeLinecap="round" fill="none" />
+                         <circle cx="38" cy="118" r="4" fill={skinBaseF} />
+                         
+                         {/* Coffee Cup */}
+                         <path d="M35 110 L 37 125 L 47 125 L 49 110 Z" fill="white" stroke="#e5e7eb" />
+                         <path d="M36 115 L 48 115" stroke={getThemeHex(400)} strokeWidth="4" />
+
+                         {/* Arm (Hanging) */}
+                         <path d="M60 100 Q 65 130 60 150" stroke={`url(#coat-${themeColor})`} strokeWidth="14" strokeLinecap="round" fill="none" />
+                         <circle cx="60" cy="155" r="4" fill={skinBaseF} />
+                    </g>
+                </svg>
+             );
+        }
+
+        // VARIANT 1: Sitting Yoga (Default)
         return (
              <svg width="340" height="280" viewBox="0 0 340 280" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <defs>
-                    <linearGradient id={`grad-bg-${themeColor}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={getThemeHex(100)} stopOpacity="0.4" />
-                        <stop offset="100%" stopColor="white" stopOpacity="0" />
-                    </linearGradient>
                     <linearGradient id={`clothes-${themeColor}`} x1="0" y1="0" x2="1" y2="1">
                          <stop offset="0%" stopColor={getThemeHex(400)} />
                          <stop offset="100%" stopColor={getThemeHex(600)} />
@@ -87,48 +148,42 @@ const RelaxedIllustration = ({ gender, themeColor }: { gender?: string, themeCol
 
                 {/* Character */}
                 <g transform="translate(110, 50)" filter="url(#softShadow)">
-                    
                     {/* LEGS (Crossed) - Dark neutral pants to contrast with colorful top */}
                     <path d="M30 140 C 10 160, 0 190, 60 195 L 80 185" fill="#374151" /> {/* Left Leg Back */}
                     <path d="M90 140 C 110 160, 120 190, 60 195" fill="#1f2937" /> {/* Right Leg Back */}
-                    
-                    {/* Leg Highlights (Clothing Folds) */}
                     <path d="M35 150 Q 20 170 50 180" stroke="white" strokeWidth="1" opacity="0.1" fill="none" />
 
                     {/* TORSO - Theme Color Top */}
                     <path d="M40 145 L 45 80 C 45 75, 75 75, 75 80 L 80 145 C 80 155, 40 155, 40 145 Z" fill={`url(#clothes-${themeColor})`} />
-                    {/* Clothing Folds */}
                     <path d="M45 130 Q 60 135 75 128" stroke="black" strokeWidth="1" opacity="0.1" fill="none" />
 
                     {/* NECK */}
                     <path d="M53 80 L 53 70 L 67 70 L 67 80" fill={skinBaseF} />
-                    <path d="M53 72 Q 60 76 67 72" fill={skinShadowF} opacity="0.5" /> {/* Neck shadow */}
+                    <path d="M53 72 Q 60 76 67 72" fill={skinShadowF} opacity="0.5" />
 
                     {/* HEAD */}
-                    <path d="M48 45 C 48 30, 72 30, 72 45 C 72 65, 60 72, 48 45" fill={skinBaseF} /> {/* Face Base */}
+                    <path d="M48 45 C 48 30, 72 30, 72 45 C 72 65, 60 72, 48 45" fill={skinBaseF} />
                     <ellipse cx="60" cy="45" rx="13" ry="16" fill={skinBaseF} />
 
                     {/* Facial Features */}
-                    <path d="M54 44 Q 57 42 60 44" stroke="#8B5E3C" strokeWidth="1" fill="none" /> {/* Left Eye Closed */}
-                    <path d="M62 44 Q 65 42 68 44" stroke="#8B5E3C" strokeWidth="1" fill="none" /> {/* Right Eye Closed */}
-                    <path d="M61 48 L 59 52 L 63 52" fill={skinShadowF} opacity="0.6" /> {/* Nose */}
-                    <path d="M58 58 Q 61 60 64 58" stroke="#D97757" strokeWidth="1.5" strokeLinecap="round" /> {/* Mouth */}
-                    <path d="M53 40 Q 57 38 60 39" stroke="#5C4033" strokeWidth="1" fill="none" opacity="0.8"/> {/* Eyebrow L */}
-                    <path d="M62 39 Q 65 38 69 40" stroke="#5C4033" strokeWidth="1" fill="none" opacity="0.8"/> {/* Eyebrow R */}
+                    <path d="M54 44 Q 57 42 60 44" stroke="#8B5E3C" strokeWidth="1" fill="none" />
+                    <path d="M62 44 Q 65 42 68 44" stroke="#8B5E3C" strokeWidth="1" fill="none" />
+                    <path d="M61 48 L 59 52 L 63 52" fill={skinShadowF} opacity="0.6" />
+                    <path d="M58 58 Q 61 60 64 58" stroke="#D97757" strokeWidth="1.5" strokeLinecap="round" />
+                    <path d="M53 40 Q 57 38 60 39" stroke="#5C4033" strokeWidth="1" fill="none" opacity="0.8"/>
+                    <path d="M62 39 Q 65 38 69 40" stroke="#5C4033" strokeWidth="1" fill="none" opacity="0.8"/>
 
                     {/* HAIR */}
-                    <path d="M60 20 C 40 20, 35 40, 35 55 C 35 60, 40 65, 45 60" fill={hairColor} /> {/* Back Hair */}
-                    <path d="M60 20 C 70 20, 85 30, 85 55 C 85 65, 80 60, 75 55" fill={hairColor} /> {/* Back Hair R */}
-                    <path d="M45 28 C 45 28, 45 40, 40 50" fill="none" stroke={hairColor} strokeWidth="8" /> {/* Side Bang L */}
-                    <path d="M75 28 C 75 28, 75 40, 80 50" fill="none" stroke={hairColor} strokeWidth="8" /> {/* Side Bang R */}
-                    <circle cx="60" cy="18" r="10" fill={hairColor} /> {/* Bun */}
-                    <path d="M55 20 Q 60 15 65 20" stroke="#4B5563" strokeWidth="1" opacity="0.5" fill="none"/> {/* Hair detail */}
+                    <path d="M60 20 C 40 20, 35 40, 35 55 C 35 60, 40 65, 45 60" fill={hairColor} />
+                    <path d="M60 20 C 70 20, 85 30, 85 55 C 85 65, 80 60, 75 55" fill={hairColor} />
+                    <path d="M45 28 C 45 28, 45 40, 40 50" fill="none" stroke={hairColor} strokeWidth="8" />
+                    <path d="M75 28 C 75 28, 75 40, 80 50" fill="none" stroke={hairColor} strokeWidth="8" />
+                    <circle cx="60" cy="18" r="10" fill={hairColor} />
+                    <path d="M55 20 Q 60 15 65 20" stroke="#4B5563" strokeWidth="1" opacity="0.5" fill="none"/>
 
                     {/* ARMS */}
                     <path d="M45 85 Q 30 110 35 130" stroke={skinBaseF} strokeWidth="8" strokeLinecap="round" fill="none" /> 
                     <path d="M75 85 Q 90 110 85 130" stroke={skinBaseF} strokeWidth="8" strokeLinecap="round" fill="none" /> 
-
-                    {/* HANDS (Resting on knees) */}
                     <circle cx="35" cy="130" r="5" fill={skinBaseF} />
                     <circle cx="85" cy="130" r="5" fill={skinBaseF} />
                 </g>
@@ -145,7 +200,59 @@ const RelaxedIllustration = ({ gender, themeColor }: { gender?: string, themeCol
         );
     }
     
-    // MALE ILLUSTRATION - Realistic Style (Casual/Beanbag)
+    // --- MALE ILLUSTRATIONS ---
+    if (variant === 2) {
+        // VARIANT 2: Leaning with Tablet
+        return (
+             <svg width="340" height="280" viewBox="0 0 340 280" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <linearGradient id={`shirt-${themeColor}`} x1="0" y1="0" x2="1" y2="1">
+                         <stop offset="0%" stopColor={getThemeHex(400)} />
+                         <stop offset="100%" stopColor={getThemeHex(600)} />
+                    </linearGradient>
+                </defs>
+                
+                {/* Wall/Desk Shadow */}
+                <path d="M190 80 L 190 250" stroke="#e2e8f0" strokeWidth="2" strokeDasharray="4 4" />
+                <ellipse cx="150" cy="255" rx="60" ry="10" fill={getThemeHex(900)} opacity="0.1" />
+
+                {/* Character */}
+                <g transform="translate(110, 40)">
+                     {/* Legs Leaning */}
+                     <path d="M30 150 L 35 230" stroke="#374151" strokeWidth="18" strokeLinecap="round" />
+                     <path d="M50 150 L 65 230" stroke="#1f2937" strokeWidth="18" strokeLinecap="round" />
+                     
+                     {/* Shoes */}
+                     <path d="M20 230 L 50 230 L 45 238 L 20 238 Z" fill="#111827" />
+                     <path d="M55 230 L 80 230 L 75 238 L 55 238 Z" fill="#111827" />
+
+                     {/* Torso */}
+                     <path d="M25 155 L 20 80 C 20 75, 60 75, 60 80 L 65 155 L 25 155 Z" fill={`url(#shirt-${themeColor})`} />
+                     <path d="M42 80 L 42 155" stroke="rgba(0,0,0,0.1)" strokeWidth="1" /> {/* Shirt seam */}
+
+                     {/* Head */}
+                     <rect x="33" y="70" width="14" height="15" fill={skinBaseM} /> {/* Neck */}
+                     <ellipse cx="40" cy="60" rx="15" ry="19" fill={skinBaseM} />
+                     <path d="M25 45 C 25 40, 35 35, 45 35 C 55 35, 60 45, 60 55 L 60 60 L 25 60 Z" fill={hairColor} /> {/* Hair */}
+                     <path d="M36 62 Q 39 60 42 62" stroke="#4B5563" strokeWidth="1" fill="none" /> {/* Eye */}
+                     <path d="M46 62 Q 49 60 52 62" stroke="#4B5563" strokeWidth="1" fill="none" /> {/* Eye */}
+                     <path d="M39 70 Q 44 72 49 70" stroke="#D97757" strokeWidth="1.5" /> {/* Smile */}
+
+                     {/* Arm holding Tablet */}
+                     <path d="M20 85 Q 0 110 25 120" stroke={`url(#shirt-${themeColor})`} strokeWidth="14" strokeLinecap="round" fill="none" />
+                     <circle cx="25" cy="120" r="5" fill={skinBaseM} />
+                     
+                     {/* Tablet */}
+                     <rect x="20" y="105" width="25" height="35" rx="2" fill="#1e293b" transform="rotate(-15 32 122)" />
+                     <rect x="22" y="107" width="21" height="31" rx="1" fill="white" transform="rotate(-15 32 122)" />
+                     <rect x="24" y="115" width="17" height="2" fill={getThemeHex(400)} transform="rotate(-15 32 122)" />
+                     <rect x="24" y="120" width="12" height="2" fill={getThemeHex(200)} transform="rotate(-15 32 122)" />
+                </g>
+             </svg>
+        );
+    }
+
+    // VARIANT 1: Male Beanbag (Default)
     return (
         <svg width="340" height="280" viewBox="0 0 340 280" fill="none" xmlns="http://www.w3.org/2000/svg">
              <defs>
@@ -164,7 +271,7 @@ const RelaxedIllustration = ({ gender, themeColor }: { gender?: string, themeCol
              {/* BEANBAG CHAIR */}
              <path d="M60 160 C 50 230, 200 250, 230 180 C 240 130, 140 120, 60 160" fill="#475569" filter="url(#shadowM)" />
              <path d="M70 165 C 65 220, 200 230, 220 180 C 220 140, 120 140, 70 165" fill="#334155" /> {/* Inner shading */}
-             <path d="M80 170 Q 150 150 210 180" stroke="#1e293b" strokeWidth="2" fill="none" opacity="0.2" /> {/* Seam */}
+             <path d="M80 170 Q 150 150 210 180" stroke="#1e293b" strokeWidth="2" fill="none" opacity="0.2" />
 
              {/* CHARACTER GROUP */}
              <g transform="translate(10, 20)">
@@ -175,11 +282,11 @@ const RelaxedIllustration = ({ gender, themeColor }: { gender?: string, themeCol
                  {/* Left Leg (Front) */}
                  <path d="M110 170 L 130 200 L 170 205" stroke="#334155" strokeWidth="22" strokeLinecap="round" fill="none" />
                  
-                 {/* Shoes (Sneakers) with Theme Accent */}
+                 {/* Shoes */}
                  <g transform="translate(160, 225) rotate(10)">
                     <path d="M0 0 L 0 10 L 25 10 Q 30 5 25 0 Z" fill="white" />
-                    <path d="M0 10 L 25 10" stroke={getThemeHex(600)} strokeWidth="4" /> {/* Sole Theme Color */}
-                    <path d="M5 0 L 15 0" stroke="#cbd5e1" strokeWidth="2" /> {/* Laces */}
+                    <path d="M0 10 L 25 10" stroke={getThemeHex(600)} strokeWidth="4" />
+                    <path d="M5 0 L 15 0" stroke="#cbd5e1" strokeWidth="2" />
                  </g>
                  <g transform="translate(155, 195) rotate(5)">
                     <path d="M0 0 L 0 10 L 25 10 Q 30 5 25 0 Z" fill="#f8fafc" />
@@ -188,31 +295,31 @@ const RelaxedIllustration = ({ gender, themeColor }: { gender?: string, themeCol
 
                  {/* TORSO (Hoodie) - Uses Theme Color */}
                  <path d="M95 160 L 90 100 C 90 90, 160 90, 160 100 L 155 160 L 95 160 Z" fill={`url(#grad-m-${themeColor})`} />
-                 <path d="M125 100 L 125 140" stroke="rgba(0,0,0,0.2)" strokeWidth="2" /> {/* Zipper */}
-                 <path d="M110 140 Q 125 145 140 140" stroke="rgba(0,0,0,0.1)" strokeWidth="2" fill="none" /> {/* Pocket fold */}
+                 <path d="M125 100 L 125 140" stroke="rgba(0,0,0,0.2)" strokeWidth="2" />
+                 <path d="M110 140 Q 125 145 140 140" stroke="rgba(0,0,0,0.1)" strokeWidth="2" fill="none" />
 
                  {/* NECK */}
                  <path d="M115 100 L 115 90 L 135 90 L 135 100" fill={skinBaseM} />
                  
                  {/* HEAD */}
                  <ellipse cx="125" cy="80" rx="20" ry="24" fill={skinBaseM} />
-                 <path d="M125 104 C 115 104, 110 100, 125 100 C 140 100, 135 104, 125 104" fill={skinShadowM} opacity="0.3" /> {/* Neck shadow */}
+                 <path d="M125 104 C 115 104, 110 100, 125 100 C 140 100, 135 104, 125 104" fill={skinShadowM} opacity="0.3" />
 
                  {/* Facial Features */}
-                 <path d="M126 84 L 122 88 L 128 88" fill={skinShadowM} /> {/* Nose */}
-                 <path d="M120 94 Q 125 96 130 94" stroke="#8B5E3C" strokeWidth="1.5" strokeLinecap="round" /> {/* Smile */}
-                 <path d="M115 80 L 135 80" stroke="#374151" strokeWidth="1.5" /> {/* Glasses Bridge */}
+                 <path d="M126 84 L 122 88 L 128 88" fill={skinShadowM} />
+                 <path d="M120 94 Q 125 96 130 94" stroke="#8B5E3C" strokeWidth="1.5" strokeLinecap="round" />
+                 <path d="M115 80 L 135 80" stroke="#374151" strokeWidth="1.5" />
                  <circle cx="118" cy="80" r="6" stroke="#374151" strokeWidth="1.5" fill="rgba(255,255,255,0.2)" />
                  <circle cx="132" cy="80" r="6" stroke="#374151" strokeWidth="1.5" fill="rgba(255,255,255,0.2)" />
-                 <path d="M115 74 Q 118 72 122 74" stroke="#4B5563" strokeWidth="1.5" fill="none" /> {/* Eyebrow */}
-                 <path d="M128 74 Q 132 72 135 74" stroke="#4B5563" strokeWidth="1.5" fill="none" /> {/* Eyebrow */}
+                 <path d="M115 74 Q 118 72 122 74" stroke="#4B5563" strokeWidth="1.5" fill="none" />
+                 <path d="M128 74 Q 132 72 135 74" stroke="#4B5563" strokeWidth="1.5" fill="none" />
                  
                  {/* Beard/Stubble */}
                  <path d="M110 85 Q 125 105 140 85" fill="#D6B08C" opacity="0.3" />
 
                  {/* HAIR (Modern Cut) */}
                  <path d="M105 70 C 105 60, 115 50, 125 50 C 140 50, 145 60, 145 75 L 145 80 L 142 80 L 142 70 C 142 70, 135 60, 125 60 C 115 60, 108 70, 108 80 L 105 80 Z" fill={hairColor} />
-                 <path d="M125 50 Q 135 45 140 55" fill={hairColor} /> {/* Tuft */}
+                 <path d="M125 50 Q 135 45 140 55" fill={hairColor} />
 
                  {/* ARMS (Holding Device) */}
                  <path d="M100 110 Q 80 130 110 145" stroke={skinBaseM} strokeWidth="12" strokeLinecap="round" fill="none" /> 
@@ -220,7 +327,6 @@ const RelaxedIllustration = ({ gender, themeColor }: { gender?: string, themeCol
 
                  {/* PHONE */}
                  <rect x="115" y="135" width="20" height="30" rx="2" fill="#1e293b" transform="rotate(-10 125 150)" />
-                 {/* Screen glow with theme color */}
                  <rect x="117" y="137" width="16" height="24" rx="1" fill={getThemeHex(400)} transform="rotate(-10 125 150)" />
                  <circle cx="125" cy="162" r="1" fill="#fff" transform="rotate(-10 125 150)" opacity="0.5" />
              </g>
@@ -230,9 +336,7 @@ const RelaxedIllustration = ({ gender, themeColor }: { gender?: string, themeCol
                 <ellipse cx="12" cy="18" rx="8" ry="3" fill="#000" opacity="0.2" />
                 <path d="M4 18 L 6 0 L 18 0 L 20 18 Z" fill="white" stroke="#e2e8f0" />
                 <path d="M6 0 L 18 0" stroke="#e2e8f0" strokeWidth="1" />
-                {/* Sleeve with Theme Color */}
                 <path d="M5 8 L 19 8 L 18 14 L 6 14 Z" fill={getThemeHex(600)} />
-                {/* Steam */}
                 <path d="M8 -5 Q 12 -10 8 -15" stroke={getThemeHex(300)} strokeWidth="2" strokeLinecap="round" opacity="0.4" />
                 <path d="M16 -8 Q 20 -14 16 -20" stroke={getThemeHex(300)} strokeWidth="2" strokeLinecap="round" opacity="0.4" />
              </g>
@@ -266,6 +370,13 @@ export const Announcements: React.FC<AnnouncementsProps> = ({
   const [newMessageDuration, setNewMessageDuration] = useState('1440');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Illustration Variant Randomizer
+  const [illustrationVariant, setIllustrationVariant] = useState(1);
+  useEffect(() => {
+    // Randomly pick variant 1 or 2 on mount
+    setIllustrationVariant(Math.random() > 0.5 ? 2 : 1);
+  }, []);
 
   const handleReplyChange = (id: string, text: string) => {
     setReplyText(prev => ({ ...prev, [id]: text }));
@@ -636,8 +747,8 @@ export const Announcements: React.FC<AnnouncementsProps> = ({
                            <MessageCircle size={64} className={`text-${themeColor}-400 drop-shadow-sm`} strokeWidth={1.5} />
                        </div>
                     ) : (
-                       // CUSTOM ILLUSTRATION BASED ON GENDER
-                       <RelaxedIllustration gender={userGender} themeColor={themeColor} />
+                       // CUSTOM ILLUSTRATION BASED ON GENDER & RANDOM VARIANT
+                       <RelaxedIllustration gender={userGender} themeColor={themeColor} variant={illustrationVariant} />
                     )}
                  </div>
              </div>

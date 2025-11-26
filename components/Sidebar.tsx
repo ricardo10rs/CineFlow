@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Megaphone, Settings, LogOut, CalendarClock, Users, Building, Timer, Clock, GripVertical, LucideIcon, MessageCircle, Hexagon, CalendarRange, CalendarDays } from 'lucide-react';
+import { Megaphone, Settings, LogOut, CalendarClock, Users, Building, Timer, Clock, GripVertical, LucideIcon, MessageCircle, Hexagon, CalendarRange, CalendarDays, QrCode, FileText, Palmtree } from 'lucide-react';
 import { User, ThemeColor } from '../types';
 
 interface SidebarProps {
@@ -20,6 +20,18 @@ type MenuItem = {
   id: string;
   icon: LucideIcon;
   label: string;
+};
+
+const getSidebarGradient = (theme: ThemeColor) => {
+    switch(theme) {
+        case 'blue': return 'bg-gradient-to-b from-slate-900 via-slate-900 to-blue-950';
+        case 'green': return 'bg-gradient-to-b from-slate-900 via-slate-900 to-emerald-950';
+        case 'purple': return 'bg-gradient-to-b from-slate-900 via-slate-900 to-purple-950';
+        case 'pink': return 'bg-gradient-to-b from-slate-900 via-slate-900 to-pink-950';
+        case 'orange': return 'bg-gradient-to-b from-slate-900 via-slate-900 to-orange-950';
+        case 'slate': return 'bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950';
+        default: return 'bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950';
+    }
 };
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
@@ -42,7 +54,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (!user) return;
 
     if (isVacationMode) {
-        setOrderedItems([]);
+        setOrderedItems([{ id: 'vacation', icon: Palmtree, label: 'Modo Férias' }]);
         return;
     }
 
@@ -52,7 +64,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         baseItems = [
           { id: 'branches', icon: Building, label: 'Unidades' },
           { id: 'team', icon: Users, label: 'Admin & Equipes' },
-          { id: 'schedulings', icon: CalendarDays, label: 'Agendamentos' },
+          { id: 'schedulings', icon: CalendarDays, label: 'Férias' },
           { id: 'settings', icon: Settings, label: 'Configurações' }
         ];
     } else {
@@ -73,8 +85,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
           baseItems.push(
             { id: 'break_monitor', icon: Timer, label: 'Monitoramento' },
             { id: 'schedulings', icon: CalendarDays, label: 'Agendamentos' },
+            { id: 'qrcode', icon: QrCode, label: 'Acesso QR' },
             { id: 'team', icon: Users, label: 'Minha Equipe' }
           );
+        } else {
+            // For employees, check if they have access to QR Code
+            if (user.hasQrCodeAccess) {
+                baseItems.push({ id: 'qrcode', icon: QrCode, label: 'Acesso QR' });
+            }
         }
         
         baseItems.push({ id: 'settings', icon: Settings, label: 'Configurações' });
@@ -100,7 +118,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     } else {
         setOrderedItems(baseItems);
     }
-  }, [user?.role, user?.id, messageStatus, isMessagesTabEnabled, isVacationMode]);
+  }, [user?.role, user?.id, messageStatus, isMessagesTabEnabled, isVacationMode, user?.hasQrCodeAccess]);
 
   const handleTabClick = (id: string) => {
     setActiveTab(id);
@@ -132,11 +150,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       <aside 
         className={`
-          fixed left-0 z-30 bg-[#0f172a] text-white transition-all duration-300 ease-in-out
+          fixed left-0 z-30 text-white transition-all duration-500 ease-in-out
           top-20 w-full border-b border-slate-800 shadow-2xl origin-top
           ${mobileMenuOpen ? 'opacity-100 visible translate-y-0' : 'opacity-0 invisible -translate-y-4 pointer-events-none'}
           md:top-0 md:h-screen md:w-64 md:opacity-100 md:visible md:translate-y-0 md:pointer-events-auto
           md:flex md:flex-col md:border-b-0 md:border-r md:static
+          ${getSidebarGradient(themeColor)}
         `}
       >
         <div className="hidden md:flex p-6 md:p-8 items-center justify-between">
@@ -149,8 +168,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {user && (
-          <div className="px-4 py-4 md:px-6 md:py-0 md:mb-6 border-b md:border-none border-slate-800">
-            <div className="bg-slate-800/50 rounded-xl p-3 flex items-center space-x-3 border border-slate-700/50">
+          <div className="px-4 py-4 md:px-6 md:py-0 md:mb-6 border-b md:border-none border-slate-700/30">
+            <div className="bg-white/5 rounded-xl p-3 flex items-center space-x-3 border border-white/10 backdrop-blur-sm">
               <div className={`w-10 h-10 rounded-full bg-gradient-to-br from-${themeColor}-500 to-${themeColor}-600 flex items-center justify-center text-sm font-bold text-white shadow-sm shrink-0 transition-colors duration-300 overflow-hidden`}>
                 {user.avatar.length > 5 ? (
                     <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
@@ -184,7 +203,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 group relative cursor-pointer ${
                     activeTab === item.id
                     ? `bg-${themeColor}-600 text-white shadow-lg shadow-${themeColor}-900/20`
-                    : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                    : 'text-slate-400 hover:bg-white/5 hover:text-white'
                 }`}
                 role="tab"
                 aria-selected={activeTab === item.id}
@@ -204,7 +223,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           ))}
         </nav>
 
-        <div className="p-4 border-t border-slate-800 mx-4 mb-4 md:mb-4">
+        <div className="p-4 border-t border-slate-700/30 mx-4 mb-4 md:mb-4">
           <button 
             onClick={onLogout}
             className="w-full flex items-center space-x-3 px-4 py-2 text-slate-400 hover:text-red-400 transition-colors"

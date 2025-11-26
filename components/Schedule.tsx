@@ -1,7 +1,7 @@
 
-import React, { useState, useEffect } from 'react';
-import { WorkShift, ThemeColor, UserRole, OffRequest, User, DailySchedule } from '../types';
-import { Clock, Pencil, X, Save, CalendarPlus, CheckCircle, XCircle, CalendarDays, ChevronLeft, ChevronRight, User as UserIcon, Trash2, Check, Eye, EyeOff, Lock, Palmtree, Clock as ClockOff, Sun, MoveHorizontal, Calendar as CalendarIcon, RefreshCw } from 'lucide-react';
+import React, { useState } from 'react';
+import { WorkShift, DailySchedule, ThemeColor, UserRole, User, OffRequest } from '../types';
+import { Calendar, ChevronLeft, ChevronRight, Clock, AlertCircle, CheckCircle2, Lock, MousePointer2, Trash2, Edit2, X, Save } from 'lucide-react';
 
 interface ScheduleProps {
   shifts: WorkShift[];
@@ -19,931 +19,511 @@ interface ScheduleProps {
   onResolveRequest: (requestId: string, status: 'approved' | 'rejected') => void;
   onDeleteRequest: (requestId: string) => void;
   onTogglePublish: (monthKey: string) => void;
-  onToggleUserWeeklySchedule?: (userId: string) => void;
-  onAssignVacation?: (userId: string, startDay: number, currentMonth: Date) => void; // New Prop
-  onUpdateUser?: (userId: string, data: Partial<User>) => void; // New prop for vacation
   isSundayOffEnabled: boolean;
-  isWeeklyScheduleEnabled?: boolean;
+  isWeeklyScheduleEnabled: boolean;
+  onToggleUserWeeklySchedule: (userId: string) => void;
 }
 
-export const Schedule: React.FC<ScheduleProps> = ({ 
-  shifts, 
+export const Schedule: React.FC<ScheduleProps> = ({
+  shifts,
   dailySchedules,
-  themeColor, 
-  userRole, 
+  themeColor,
+  userRole,
   userId,
   users,
   requests,
   publishedMonths,
   onUpdateShifts,
-  onUpdateDailySchedule,
-  onBulkUpdateDailySchedule,
   onRequestOff,
   onResolveRequest,
   onDeleteRequest,
   onTogglePublish,
-  onToggleUserWeeklySchedule,
-  onAssignVacation,
-  onUpdateUser,
   isSundayOffEnabled,
-  isWeeklyScheduleEnabled = true
+  isWeeklyScheduleEnabled,
+  onUpdateDailySchedule
 }) => {
+  const [currentDate, setCurrentDate] = useState(new Date());
   
-  const [isEditing, setIsEditing] = useState(false);
-  const [tempShifts, setTempShifts] = useState<WorkShift[]>([]);
-  const [selectedSunday, setSelectedSunday] = useState('');
-  
-  // Monthly View States
-  const [selectedUserId, setSelectedUserId] = useState<string>(userId);
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [isVacationMode, setIsVacationMode] = useState(false); // New State for interactive selection
-  
-  // Vacation Date Confirmation State
-  const [tempVacationDate, setTempVacationDate] = useState('');
+  // Edit Weekly Schedule States
+  const [editingShift, setEditingShift] = useState<WorkShift | null>(null);
+  const [editStartTime, setEditStartTime] = useState('');
+  const [editEndTime, setEditEndTime] = useState('');
+  const [editIsOff, setEditIsOff] = useState(false);
 
-  useEffect(() => {
-    if (userRole !== 'admin') {
-        setSelectedUserId(userId);
-    }
-  }, [userRole, userId]);
+  const isAdmin = userRole === 'admin' || userRole === 'super_admin';
 
-  const selectedUser = users.find(u => u.id === selectedUserId);
+  const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+  const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay(); // 0 is Sunday
 
-  // Sync temp vacation date when selected user changes
-  useEffect(() => {
-      if (selectedUser) {
-          setTempVacationDate(selectedUser.vacationReturnDate || '');
-      }
-  }, [selectedUser]);
+  // Month Key for Publication Logic
+  const monthKey = `${currentDate.getFullYear()}-${currentDate.getMonth()}`;
+  const isPublished = publishedMonths.includes(monthKey);
 
-  const handleEditClick = () => {
-    setTempShifts(JSON.parse(JSON.stringify(shifts)));
-    setIsEditing(true);
+  const changeMonth = (increment: number) => {
+    const newDate = new Date(currentDate);
+    newDate.setMonth(newDate.getMonth() + increment);
+    setCurrentDate(newDate);
   };
 
-  const handleSaveClick = () => {
-    onUpdateShifts(tempShifts);
-    setIsEditing(false);
+  const getDaySchedules = (day: number) => {
+    const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    return dailySchedules.filter(s => s.date === dateStr);
   };
-
-  const handleShiftChange = (id: string, field: keyof WorkShift, value: any) => {
-    setTempShifts(prev => {
-      const index = prev.findIndex(s => s.id === id);
-      if (index === -1) return prev;
-
-      const newShifts = [...prev];
-      newShifts[index] = { ...newShifts[index], [field]: value };
-
-      if (index === 0 && field === 'date' && typeof value === 'string') {
-          const match = value.match(/^(\d{1,2})[\/-]?(\d{1,2})?$/);
-          
-          if (match) {
-              const day = parseInt(match[1], 10);
-              let month = match[2] ? parseInt(match[2], 10) : (new Date().getMonth() + 1);
-
-              if (!isNaN(day) && day >= 1 && day <= 31) {
-                  const currentYear = new Date().getFullYear();
-                  const baseDate = new Date(currentYear, month - 1, day);
-
-                  for (let i = 1; i < newShifts.length; i++) {
-                      const nextDate = new Date(baseDate);
-                      nextDate.setDate(baseDate.getDate() + i);
-                      
-                      const dd = String(nextDate.getDate()).padStart(2, '0');
-                      const mm = String(nextDate.getMonth() + 1).padStart(2, '0');
-                      
-                      newShifts[i] = {
-                          ...newShifts[i],
-                          date: `${dd}/${mm}`
-                      };
-                  }
-              }
-          }
-      }
-
-      if (field === 'type' && value === 'Off') {
-          newShifts[index].startTime = '-';
-          newShifts[index].endTime = '-';
-          newShifts[index].location = '';
-      } else if (field === 'type' && (value === 'Work' || value === 'Remote') && newShifts[index].type === 'Off') {
-          newShifts[index].startTime = '09:00';
-          newShifts[index].endTime = '-';
-          newShifts[index].location = value === 'Remote' ? 'Home Office' : 'Escritório Central';
-      }
-      
-      return newShifts;
-    });
-  };
-
-  const getDaysInMonth = (date: Date) => {
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    const days = new Date(year, month + 1, 0).getDate();
-    const firstDay = new Date(year, month, 1).getDay();
-    return { days, firstDay };
-  };
-
-  const { days, firstDay } = getDaysInMonth(currentMonth);
   
-  const getDailyStatus = (day: number) => {
-    const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    
-    const explicitSchedule = dailySchedules.find(s => s.userId === selectedUserId && s.date === dateStr);
-    if (explicitSchedule) return explicitSchedule;
-
-    return {
-        id: `virtual-${dateStr}`,
-        userId: selectedUserId,
-        date: dateStr,
-        type: 'Work',
-        isDefault: true 
-    } as DailySchedule & { isDefault?: boolean };
+  const formatRequestDate = (day: number) => {
+      return `${String(day).padStart(2, '0')}/${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
   };
 
   const handleDayClick = (day: number) => {
-    if (userRole !== 'admin') return;
+      const dateObj = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+      const isSunday = dateObj.getDay() === 0;
+      const dateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      
+      // Admin Toggle Logic
+      if (isAdmin) {
+          // Find specific schedule for the current user context (userId)
+          // We default to "Work" if nothing exists.
+          const existingSchedule = dailySchedules.find(s => s.date === dateStr && s.userId === userId);
+          const currentType = existingSchedule ? existingSchedule.type : 'Work';
 
-    // --- VACATION MODE LOGIC ---
-    if (isVacationMode && onAssignVacation) {
-        if (window.confirm(`Confirmar férias de 30 dias a partir do dia ${day}? Isso irá sobrescrever a escala e gerar o aviso de retorno.`)) {
-            onAssignVacation(selectedUserId, day, currentMonth);
-            setIsVacationMode(false); // Turn off mode after selection
-        }
-        return;
-    }
+          let nextType: 'Work' | 'Off' | 'Vacation' | 'SundayOff' = 'Work';
 
-    const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    const currentStatus = getDailyStatus(day);
-    
-    const clickedDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-    const isSunday = clickedDate.getDay() === 0;
+          // Cycle: Work -> Off -> Vacation -> (SundayOff if Sunday) -> Work
+          if (currentType === 'Work') {
+              nextType = 'Off'; // Folga Semanal
+          } else if (currentType === 'Off') {
+              nextType = 'Vacation'; // Férias
+          } else if (currentType === 'Vacation') {
+              if (isSunday) {
+                  nextType = 'SundayOff'; // Folga Dominical
+              } else {
+                  nextType = 'Work'; // Back to start
+              }
+          } else if (currentType === 'SundayOff') {
+              nextType = 'Work';
+          }
 
-    let newType: 'Work' | 'Off' | 'SundayOff' | 'Vacation' = 'Work';
-    
-    if (currentStatus) {
-        if (isSunday) {
-            if (currentStatus.type === 'Work') newType = 'SundayOff';
-            else if (currentStatus.type === 'SundayOff') newType = 'Vacation';
-            else if (currentStatus.type === 'Vacation') newType = 'Work';
-            else newType = 'SundayOff'; 
-        } else {
-            if (currentStatus.type === 'Work') newType = 'Off';
-            else if (currentStatus.type === 'Off') newType = 'Vacation';
-            else if (currentStatus.type === 'Vacation') newType = 'Work';
-            else newType = 'Work';
-        }
-    }
+          const newSchedule: DailySchedule = {
+              id: existingSchedule ? existingSchedule.id : Date.now().toString(),
+              userId: userId,
+              date: dateStr,
+              type: nextType
+          };
 
-    onUpdateDailySchedule({
-        id: currentStatus && !('isDefault' in currentStatus) ? currentStatus.id : Date.now().toString(),
-        userId: selectedUserId,
-        date: dateStr,
-        type: newType
-    });
-  };
-
-  const handleBulkFill = (type: 'Work' | 'Off' | 'Vacation') => {
-      if (!window.confirm(`Deseja preencher TODO o mês de ${currentMonth.toLocaleString('pt-BR', { month: 'long'})} como "${type === 'Work' ? 'Trabalho' : type === 'Off' ? 'Folga' : 'Férias'}"? Isso sobrescreverá configurações atuais.`)) {
+          onUpdateDailySchedule(newSchedule);
           return;
       }
 
-      const { days: totalDays } = getDaysInMonth(currentMonth);
-      const bulkUpdates: DailySchedule[] = [];
-
-      for (let d = 1; d <= totalDays; d++) {
-          const dateToCheck = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), d);
+      // Request Off Logic for Employees on Sundays
+      if (!isAdmin && isSunday && isSundayOffEnabled) {
+          const reqDate = formatRequestDate(day);
+          const hasPending = requests.some(r => r.date === reqDate && r.userId === userId && r.status === 'pending');
           
-          // Skip Sundays for bulk fill
-          if (dateToCheck.getDay() === 0) continue;
-
-          const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-          const uniqueId = `${Date.now()}-${d}-${Math.random().toString(36).substr(2, 5)}`;
-          
-          bulkUpdates.push({
-              id: uniqueId,
-              userId: selectedUserId,
-              date: dateStr,
-              type: type
-          });
-      }
-      
-      onBulkUpdateDailySchedule(bulkUpdates);
-  };
-
-  const getNextMonthSundays = () => {
-    const dates = [];
-    const today = new Date();
-    const date = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-    const targetMonth = date.getMonth(); 
-
-    while (date.getMonth() === targetMonth) {
-      if (date.getDay() === 0) { 
-        const d = String(date.getDate()).padStart(2, '0');
-        const m = String(date.getMonth() + 1).padStart(2, '0');
-        dates.push(`${d}/${m}`);
-      }
-      date.setDate(date.getDate() + 1);
-    }
-    return dates;
-  };
-  
-  const getNextMonthName = () => {
-      const today = new Date();
-      const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-      const monthName = nextMonth.toLocaleDateString('pt-BR', { month: 'long' });
-      return monthName.charAt(0).toUpperCase() + monthName.slice(1);
-  };
-
-  const handleRequestSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedSunday) return;
-
-    const [reqDay, reqMonth] = selectedSunday.split('/');
-
-    const hasPendingRequest = requests.find(req => req.userId === userId && req.status === 'pending');
-    if (hasPendingRequest) {
-      alert(`⚠️ Você já possui uma solicitação pendente (${hasPendingRequest.date}). Aguarde a análise ou exclua a anterior para enviar uma nova.`);
-      return;
-    }
-
-    const hasApprovedInMonth = requests.find(req => {
-      if (req.userId !== userId || req.status !== 'approved') return false;
-      const [, rMonth] = req.date.split('/');
-      return rMonth === reqMonth;
-    });
-
-    if (hasApprovedInMonth) {
-      alert(`⚠️ Você já possui uma folga aprovada para o mês ${reqMonth}.`);
-      return;
-    }
-
-    const currentUser = users.find(u => u.id === userId);
-    if (currentUser && currentUser.jobTitle) {
-      const restrictedRoles = ['Bilheteira', 'Atendente de Bombonière', 'Auxiliar de Limpeza'];
-      if (restrictedRoles.includes(currentUser.jobTitle)) {
-        const sameRoleRequests = requests.filter(req => {
-          if (req.date !== selectedSunday || req.status === 'rejected') return false;
-          const reqUser = users.find(u => u.id === req.userId);
-          return reqUser?.jobTitle === currentUser.jobTitle;
-        });
-
-        if (sameRoleRequests.length >= 1) {
-           alert(`⚠️ Solicitação Bloqueada! Apenas 1 profissional de ${currentUser.jobTitle} pode folgar neste domingo.`);
-           return;
-        }
-      }
-    }
-    onRequestOff(selectedSunday);
-    setSelectedSunday('');
-    alert('Solicitação enviada com sucesso!');
-  };
-
-  const pendingRequests = requests.filter(r => r.status === 'pending').sort((a, b) => Number(a.id) - Number(b.id));
-  
-  const userRequests = requests.filter(r => {
-      if (r.userId !== userId) return false;
-      if (r.status === 'approved') return false; 
-      if (r.status === 'rejected' && r.resolutionDate) {
-          const resolveDate = new Date(r.resolutionDate);
-          const today = new Date();
-          const diffTime = Math.abs(today.getTime() - resolveDate.getTime());
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-          if (diffDays > 5) return false; 
-      }
-      return true;
-  }).sort((a, b) => Number(b.id) - Number(a.id)); 
-
-  const currentMonthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
-  const isMonthPublished = publishedMonths.includes(`${selectedUserId}:${currentMonthKey}`);
-  const canViewCalendar = userRole === 'admin' || isMonthPublished;
-
-  const todayStr = new Date().toISOString().split('T')[0];
-  const todaySchedule = dailySchedules.find(s => s.userId === userId && s.date === todayStr);
-  const isVacationToday = todaySchedule?.type === 'Vacation';
-  
-  let returnDateDisplay = '';
-  if (isVacationToday) {
-      let checkDate = new Date();
-      for(let i = 1; i <= 60; i++) {
-          checkDate.setDate(checkDate.getDate() + 1);
-          const dStr = checkDate.toISOString().split('T')[0];
-          const s = dailySchedules.find(item => item.userId === userId && item.date === dStr);
-          
-          if (!s || s.type !== 'Vacation') {
-             returnDateDisplay = checkDate.toLocaleDateString('pt-BR');
-             break;
+          if (hasPending) {
+              alert('Você já tem uma solicitação pendente para este dia.');
+              return;
           }
-      }
-  }
 
-  const currentUserObj = users.find(u => u.id === userId);
-  const isHiddenForUser = currentUserObj?.hideWeeklySchedule || false;
-  const showWeeklySchedule = userRole === 'admin' || (isWeeklyScheduleEnabled && !isHiddenForUser);
-
-  // Handle Confirm Vacation
-  const handleConfirmVacation = () => {
-      if (onUpdateUser && selectedUser) {
-          if (!tempVacationDate) {
-             alert("Por favor, selecione uma data de retorno.");
-             return;
-          }
-          onUpdateUser(selectedUserId, { vacationReturnDate: tempVacationDate });
-      }
-  };
-
-  const handleClearVacation = () => {
-      if (onUpdateUser && selectedUser) {
-          if(window.confirm(`Desativar o Modo Férias para ${selectedUser.name}?`)) {
-              setTempVacationDate('');
-              onUpdateUser(selectedUserId, { vacationReturnDate: undefined });
+          if (window.confirm(`Deseja solicitar folga para o domingo dia ${reqDate}?`)) {
+              onRequestOff(reqDate);
           }
       }
   };
+
+  // --- WEEKLY SHIFT EDIT HANDLERS ---
+  const handleShiftClick = (shift: WorkShift) => {
+      if (!isAdmin) return;
+      setEditingShift(shift);
+      setEditStartTime(shift.startTime === '-' ? '09:00' : shift.startTime);
+      setEditEndTime(shift.endTime === '-' ? '18:00' : shift.endTime);
+      setEditIsOff(shift.type === 'Off');
+  };
+
+  const handleSaveShift = () => {
+      if (!editingShift) return;
+
+      const updatedShifts = shifts.map(s => {
+          if (s.id === editingShift.id) {
+              return {
+                  ...s,
+                  startTime: editIsOff ? '-' : editStartTime,
+                  endTime: editIsOff ? '-' : editEndTime,
+                  type: editIsOff ? 'Off' : 'Work' as const // Type assertion needed or ensure type matches
+              };
+          }
+          return s;
+      });
+
+      onUpdateShifts(updatedShifts);
+      setEditingShift(null);
+  };
+
+  const getStatusColorClass = (type: string) => {
+      switch (type) {
+          case 'Work': return 'bg-blue-600 text-white border-blue-600';
+          case 'SundayOff': return 'bg-purple-600 text-white border-purple-600';
+          case 'Off': return 'bg-emerald-500 text-white border-emerald-500';
+          case 'Vacation': return 'bg-orange-500 text-white border-orange-500';
+          default: return 'bg-blue-600 text-white border-blue-600'; // Default Work
+      }
+  };
+
+  const getStatusLabel = (type: string) => {
+      switch (type) {
+          case 'Work': return 'TRABALHO';
+          case 'SundayOff': return 'FOLGA DOM';
+          case 'Off': return 'FOLGA';
+          case 'Vacation': return 'FÉRIAS';
+          default: return 'TRABALHO';
+      }
+  };
+
+  // Sort shifts starting from Thursday (Index 4)
+  // Standard Index: 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+  // Desired Order: Thu, Fri, Sat, Sun, Mon, Tue, Wed
+  const dayOrder = [4, 5, 6, 0, 1, 2, 3];
+  
+  const sortedShifts = [...shifts].sort((a, b) => {
+      return dayOrder.indexOf(a.dayIndex) - dayOrder.indexOf(b.dayIndex);
+  });
+
+  // Calculate Dates for the Weekly Schedule (Relative to Today)
+  const today = new Date();
+  const currentDayIndex = today.getDay(); // 0 (Sun) to 6 (Sat)
+  // We want the cycle to start on Thursday (4).
+  // Find the most recent Thursday (or today if today is Thursday)
+  const distanceToThursday = (currentDayIndex + 7 - 4) % 7;
+  const startOfWeekDate = new Date(today);
+  startOfWeekDate.setDate(today.getDate() - distanceToThursday);
 
   return (
     <div className="space-y-8 animate-fade-in relative">
+       
+       {/* EDIT SHIFT MODAL */}
+       {editingShift && (
+           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
+               <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-fade-in-up border border-slate-100">
+                   <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50">
+                       <h3 className="text-lg font-bold text-slate-800 flex items-center">
+                           <Edit2 size={18} className="mr-2 text-blue-600" />
+                           Editar {editingShift.dayOfWeek}
+                       </h3>
+                       <button onClick={() => setEditingShift(null)} className="text-slate-400 hover:text-slate-600">
+                           <X size={20} />
+                       </button>
+                   </div>
+                   
+                   <div className="p-6 space-y-4">
+                       <div className="flex items-center space-x-3 bg-slate-50 p-3 rounded-xl border border-slate-200 cursor-pointer" onClick={() => setEditIsOff(!editIsOff)}>
+                           <div className={`w-5 h-5 rounded border flex items-center justify-center ${editIsOff ? 'bg-blue-600 border-blue-600' : 'bg-white border-slate-300'}`}>
+                               {editIsOff && <CheckCircle2 size={14} className="text-white" />}
+                           </div>
+                           <span className="text-sm font-bold text-slate-700">Marcar como Folga</span>
+                       </div>
 
-      {/* --- WEEKLY VIEW --- */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-        {/* Edit Modal */}
-        {isEditing && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-fade-in-up max-h-[90vh] flex flex-col">
-                    <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50">
-                        <h2 className="text-xl font-bold text-slate-800 flex items-center">
-                            <Pencil className={`mr-2 text-${themeColor}-600`} size={20} />
-                            Editar Horários de Início
-                        </h2>
-                        <button onClick={() => setIsEditing(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
-                            <X size={24} />
-                        </button>
+                       {!editIsOff && (
+                           <div className="grid grid-cols-2 gap-4">
+                               <div>
+                                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Início</label>
+                                   <input 
+                                       type="time" 
+                                       value={editStartTime}
+                                       onChange={(e) => setEditStartTime(e.target.value)}
+                                       className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none text-center font-mono font-bold"
+                                   />
+                               </div>
+                               <div>
+                                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Término</label>
+                                   <input 
+                                       type="time" 
+                                       value={editEndTime}
+                                       onChange={(e) => setEditEndTime(e.target.value)}
+                                       className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none text-center font-mono font-bold"
+                                   />
+                               </div>
+                           </div>
+                       )}
+
+                       <button 
+                           onClick={handleSaveShift}
+                           className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center mt-2"
+                       >
+                           <Save size={18} className="mr-2" />
+                           Salvar Alterações
+                       </button>
+                   </div>
+               </div>
+           </div>
+       )}
+
+       {/* 1. Standard Weekly Schedule - RE-STYLED CAPSULE FORMAT */}
+       {isWeeklyScheduleEnabled && (
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                        <Clock size={20} className={`text-${themeColor}-600`} />
+                        Escala Padrão Semanal
+                    </h3>
+                    <div className="flex items-center gap-2">
+                        {isAdmin && (
+                             <span className="text-[10px] text-blue-500 font-bold bg-blue-50 px-2 py-1 rounded-md hidden sm:inline-block">
+                                 Clique para editar
+                             </span>
+                        )}
+                        <span className="text-xs text-slate-400 font-medium bg-slate-50 px-3 py-1.5 rounded-full border border-slate-200">
+                            Semana de {startOfWeekDate.toLocaleDateString('pt-BR', {day: 'numeric', month: 'short'})}
+                        </span>
                     </div>
-                    
-                    <div className="p-6 overflow-y-auto flex-1 space-y-4">
-                        <p className="text-xs text-amber-700 bg-amber-50 p-3 rounded-lg border border-amber-200">
-                            Nota: Esta é a escala geral de funcionamento da empresa.
-                        </p>
-                        {tempShifts.map((shift) => (
-                            <div key={shift.id} className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
-                                <div className="sm:col-span-3">
-                                    <input 
-                                        type="text" 
-                                        value={shift.dayOfWeek}
-                                        onChange={(e) => handleShiftChange(shift.id, 'dayOfWeek', e.target.value)}
-                                        className="w-full text-sm border border-slate-300 rounded-lg p-2 bg-white text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none font-bold"
-                                        placeholder="Dia"
-                                    />
-                                </div>
-                                
-                                <div className="sm:col-span-3">
-                                    <input 
-                                        type="text" 
-                                        value={shift.date || ''}
-                                        onChange={(e) => handleShiftChange(shift.id, 'date', e.target.value)}
-                                        className="w-full text-sm border border-slate-300 rounded-lg p-2 bg-white text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
-                                        placeholder="Dia/Mês (ex: 26/10)"
-                                    />
-                                </div>
-                                
-                                <div className="sm:col-span-3">
-                                    <select 
-                                        value={shift.type}
-                                        onChange={(e) => handleShiftChange(shift.id, 'type', e.target.value)}
-                                        className="w-full text-sm border border-slate-300 rounded-lg p-2 bg-white text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
-                                    >
-                                        <option value="Work">Aberto</option>
-                                        <option value="Off">Fechado</option>
-                                    </select>
-                                </div>
+                </div>
+                
+                <div className="flex overflow-x-auto pb-4 gap-3 sm:justify-between no-scrollbar">
+                    {sortedShifts.map((shift, index) => {
+                        // Calculate specific date for this card
+                        const shiftDate = new Date(startOfWeekDate);
+                        shiftDate.setDate(startOfWeekDate.getDate() + index);
+                        
+                        const isToday = shiftDate.toDateString() === today.toDateString();
+                        const dateNumber = shiftDate.getDate();
+                        // Get 3-letter day name
+                        const dayName = shiftDate.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
 
-                                {shift.type !== 'Off' && (
-                                    <div className="sm:col-span-3 flex items-center space-x-2">
-                                        <div className="flex flex-col w-full">
-                                            <input 
-                                                type="time" 
-                                                value={shift.startTime}
-                                                onChange={(e) => handleShiftChange(shift.id, 'startTime', e.target.value)}
-                                                className="w-full text-sm border border-slate-300 rounded-lg p-2 bg-white text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
-                                                title="Horário de Início"
-                                            />
-                                        </div>
+                        return (
+                            <div 
+                                key={shift.id} 
+                                onClick={() => handleShiftClick(shift)}
+                                className={`
+                                    min-w-[80px] sm:min-w-[100px] flex-1 rounded-[24px] p-4 flex flex-col items-center justify-center gap-2 transition-all duration-300 border relative group
+                                    ${isAdmin ? 'cursor-pointer' : ''}
+                                    ${isToday 
+                                        ? `bg-${themeColor}-500 border-${themeColor}-500 text-white shadow-lg shadow-${themeColor}-200 scale-105` 
+                                        : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
+                                    }
+                                `}
+                            >
+                                {/* Edit Hint for Admin */}
+                                {isAdmin && (
+                                    <div className={`absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity ${isToday ? 'text-white/80' : 'text-slate-300'}`}>
+                                        <Edit2 size={12} />
                                     </div>
                                 )}
-                            </div>
-                        ))}
-                    </div>
 
-                    <div className="p-4 border-t border-slate-100 flex justify-end bg-slate-50">
-                        <button 
-                            onClick={() => setIsEditing(false)}
-                            className="px-4 py-2 text-slate-500 hover:bg-slate-200 rounded-lg mr-2 transition-colors font-medium"
-                        >
-                            Cancelar
-                        </button>
-                        <button 
-                            onClick={handleSaveClick}
-                            className={`bg-${themeColor}-600 hover:bg-${themeColor}-700 text-white px-6 py-2 rounded-lg shadow-lg shadow-${themeColor}-500/30 flex items-center font-bold transition-all`}
-                        >
-                            <Save size={18} className="mr-2" />
-                            Salvar
-                        </button>
-                    </div>
+                                {/* Day Name (Mon, Tue) */}
+                                <span className={`text-xs font-bold uppercase tracking-wider ${isToday ? 'opacity-80' : 'text-slate-400'}`}>
+                                    {dayName}
+                                </span>
+                                
+                                {/* Date Number */}
+                                <span className={`text-2xl sm:text-3xl font-bold ${isToday ? 'text-white' : 'text-slate-700'}`}>
+                                    {dateNumber}
+                                </span>
+
+                                {/* Content: Start Time or OFF */}
+                                <div className={`mt-1 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${isToday ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                                    {shift.type === 'Off' ? 'Folga' : shift.startTime}
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
         )}
 
-        <div className="flex justify-between items-start mb-6">
-            <div>
-                <h2 className="text-lg font-bold text-slate-800 flex items-center">
-                    <Clock className={`mr-2 text-${themeColor}-600`} size={20} />
-                    Horários da Semana
-                </h2>
-                <p className="text-xs text-slate-500">Escala geral de horários de entrada.</p>
-            </div>
-            {userRole === 'admin' && (
-                <button 
-                    onClick={handleEditClick}
-                    className={`text-xs font-bold flex items-center bg-${themeColor}-50 text-${themeColor}-700 px-3 py-1.5 rounded-lg hover:bg-${themeColor}-100 border border-${themeColor}-200 transition-colors`}
-                >
-                    <Pencil size={12} className="mr-1.5" />
-                    Editar Geral
-                </button>
-            )}
-        </div>
-
-        {!showWeeklySchedule ? (
-            <div className="py-12 flex flex-col items-center justify-center bg-slate-50 rounded-xl border border-slate-200 text-center">
-                <div className="bg-white p-4 rounded-full shadow-sm mb-4">
-                    <ClockOff size={40} className="text-slate-400" />
-                </div>
-                <h3 className="text-xl font-bold text-slate-700">Aproveite seu descanso!</h3>
-                <p className="text-slate-500 text-sm mt-2 max-w-xs">
-                    {isHiddenForUser 
-                        ? "Sua escala semanal está pausada durante sua ausência."
-                        : "A visualização da escala semanal está temporariamente desabilitada."
-                    }
-                </p>
-            </div>
-        ) : userRole !== 'admin' && isVacationToday ? (
-            <div className="py-12 flex flex-col items-center justify-center bg-orange-50 rounded-xl border border-orange-100 text-center">
-                <div className="bg-white p-4 rounded-full shadow-sm mb-4">
-                    <Palmtree size={40} className="text-orange-500" />
-                </div>
-                <h3 className="text-xl font-bold text-orange-700">Boas Férias!</h3>
-                <p className="text-orange-600 text-sm mt-2 max-w-xs">
-                    Aproveite seu descanso.
-                </p>
-                {returnDateDisplay && (
-                    <div className="mt-4 bg-white/80 px-4 py-2 rounded-lg border border-orange-200">
-                        <p className="text-xs font-bold text-orange-800 uppercase">Retorno previsto</p>
-                        <p className="text-lg font-bold text-orange-600">{returnDateDisplay}</p>
-                    </div>
-                )}
-            </div>
-        ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-3 md:gap-4">
-                {shifts.map((shift) => {
-                    const isOff = shift.type === 'Off';
-                    const today = new Date();
-                    const currentDayIdx = today.getDay();
-                    const diff = shift.dayIndex! - currentDayIdx; 
-                    const shiftDate = new Date();
-                    shiftDate.setDate(today.getDate() + diff);
-                    
-                    const isToday = diff === 0;
-                    const dateString = shift.date || shiftDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-
-                    let containerClasses = "p-4 rounded-xl border flex flex-col items-center justify-center text-center transition-all duration-300 relative overflow-hidden";
-                    
-                    if (isToday) {
-                       containerClasses += ` bg-${themeColor}-600 border-${themeColor}-700 shadow-lg shadow-${themeColor}-500/30 scale-105 z-10 ring-2 ring-offset-2 ring-${themeColor}-500`;
-                    } else if (isOff) {
-                       containerClasses += " bg-slate-50 border-slate-200/60";
-                    } else {
-                       containerClasses += " bg-white border-slate-200 shadow-sm";
-                    }
-
-                    return (
-                        <div key={shift.id} className={containerClasses}>
-                            <span className={`text-xs font-bold uppercase mb-0.5 ${isToday ? 'text-white/80' : 'text-slate-400'}`}>{shift.dayOfWeek.substring(0,3)}</span>
-                            <span className={`text-xs font-medium mb-1 ${isToday ? 'text-white/90' : 'text-slate-500'}`}>{dateString}</span>
-                            <span className={`text-sm font-bold mb-2 ${isToday ? 'text-white' : 'text-slate-700'}`}>{shift.dayOfWeek.split('-')[0]}</span>
-                            
-                            {/* Active Indicator Dots for Today */}
-                            {isToday && (
-                                <div className="flex gap-1 mb-2">
-                                    <div className="w-1 h-1 bg-white rounded-full opacity-90"></div>
-                                    <div className="w-1 h-1 bg-white rounded-full opacity-60"></div>
-                                    <div className="w-1 h-1 bg-white rounded-full opacity-30"></div>
-                                </div>
-                            )}
-
-                            {isOff ? (
-                                <span className="text-xs font-medium text-slate-500 bg-slate-200/50 px-2 py-1 rounded">Fechado</span>
-                            ) : (
-                                <div className="flex flex-col items-center">
-                                    <span className={`text-[10px] font-medium uppercase mb-0.5 ${isToday ? 'text-white/70' : 'text-slate-400'}`}>Início</span>
-                                    <span className={`text-sm font-bold ${isToday ? 'text-white' : `text-${themeColor}-600`}`}>
-                                        {shift.startTime}
-                                    </span>
-                                </div>
-                            )}
-                        </div>
-                    )
-                })}
-            </div>
-        )}
-      </div>
-
-      {/* --- MONTHLY VIEW (INDIVIDUAL) --- */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
-                <div className="flex items-center space-x-4">
-                    <h2 className="text-lg font-bold text-slate-800 flex items-center">
-                        <CalendarDays className={`mr-2 text-${themeColor}-600`} size={20} />
-                        Escala Mensal
-                    </h2>
-                    {userRole === 'admin' && (
-                        <div className="flex items-center gap-2">
-                            <div className="relative">
-                                <UserIcon size={14} className="absolute left-3 top-2.5 text-slate-500" />
-                                <select 
-                                    value={selectedUserId}
-                                    onChange={(e) => setSelectedUserId(e.target.value)}
-                                    className="pl-9 pr-8 py-1.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none appearance-none"
-                                >
-                                    {users.map(u => (
-                                        <option key={u.id} value={u.id}>{u.name} ({u.jobTitle || 'Func.'})</option>
-                                    ))}
-                                </select>
-                            </div>
-                            {selectedUser && onToggleUserWeeklySchedule && (
-                                <button 
-                                    onClick={() => onToggleUserWeeklySchedule(selectedUserId)}
-                                    className={`p-2 rounded-lg border transition-colors ${
-                                        selectedUser.hideWeeklySchedule 
-                                        ? 'bg-orange-50 border-orange-200 text-orange-600 hover:bg-orange-100' 
-                                        : 'bg-slate-50 border-slate-200 text-slate-400 hover:bg-slate-100 hover:text-slate-600'
-                                    }`}
-                                    title={selectedUser.hideWeeklySchedule ? "A Escala Semanal está OCULTA para este usuário" : "A Escala Semanal está VISÍVEL para este usuário"}
-                                >
-                                    {selectedUser.hideWeeklySchedule ? <EyeOff size={16} /> : <Eye size={16} />}
-                                </button>
-                            )}
-                        </div>
-                    )}
-                    {userRole !== 'admin' && selectedUser && (
-                        <div className="text-xs text-slate-500 bg-slate-50 px-3 py-1 rounded-full border border-slate-200">
-                            Sua Escala Individual
-                        </div>
-                    )}
-                </div>
-
-                <div className="flex flex-col items-end gap-2">
-                    <div className="flex items-center gap-3">
-                        <div className="flex items-center bg-slate-50 rounded-lg p-1 border border-slate-200">
-                            <button onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() - 1)))} className="p-1 hover:bg-slate-200 rounded text-slate-500 transition-all"><ChevronLeft size={16} /></button>
-                            <span className="mx-4 text-sm font-bold text-slate-700 min-w-[120px] text-center">
-                                {currentMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
-                            </span>
-                            <button onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() + 1)))} className="p-1 hover:bg-slate-200 rounded text-slate-500 transition-all"><ChevronRight size={16} /></button>
-                        </div>
-
-                        {userRole === 'admin' && (
-                            <>
-                                <button 
-                                    onClick={() => onTogglePublish(`${selectedUserId}:${currentMonthKey}`)}
-                                    className={`flex items-center px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border ${
-                                        isMonthPublished 
-                                            ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' 
-                                            : 'bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-200'
-                                    }`}
-                                    title={isMonthPublished ? "Escala visível para o funcionário" : "Escala oculta (rascunho)"}
-                                >
-                                    {isMonthPublished ? (
-                                        <>
-                                            <Eye size={14} className="mr-2" />
-                                            Publicada
-                                        </>
-                                    ) : (
-                                        <>
-                                            <EyeOff size={14} className="mr-2" />
-                                            Rascunho
-                                        </>
-                                    )}
-                                </button>
-                            </>
-                        )}
-                    </div>
-                </div>
+       {/* 2. Monthly Calendar Header */}
+       <div className="flex flex-col md:flex-row justify-between items-end gap-4 mt-8">
+         <div>
+            <h2 className="text-xl font-bold text-slate-800">Escala Mensal</h2>
+            <p className="text-sm text-slate-500">
+                {isAdmin 
+                    ? 'Clique nos dias para alternar: Trabalho > Folga > Férias > Folga Dom.' 
+                    : 'Visualize seus horários e folgas do mês.'}
+            </p>
+         </div>
+         
+         <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+             <div className="flex items-center gap-2 bg-white p-1 rounded-xl border border-slate-200 shadow-sm w-full sm:w-auto justify-between">
+                 <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-slate-50 rounded-lg transition-colors"><ChevronLeft size={20} className="text-slate-500" /></button>
+                 <span className="font-bold text-slate-700 w-32 text-center select-none capitalize">
+                     {currentDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+                 </span>
+                 <button onClick={() => changeMonth(1)} className="p-2 hover:bg-slate-50 rounded-lg transition-colors"><ChevronRight size={20} className="text-slate-500" /></button>
              </div>
 
-             {/* Vacation Mode Controls (Admin Only) */}
-             {userRole === 'admin' && selectedUser && (
-                 <div className="bg-orange-50 border border-orange-100 rounded-xl p-3 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                     <div className="flex items-center gap-3">
-                         <div className="bg-white p-2 rounded-lg shadow-sm text-orange-500">
-                             <Palmtree size={18} />
-                         </div>
-                         <div>
-                             <h4 className="text-sm font-bold text-slate-800">Modo Férias</h4>
-                             <p className="text-xs text-slate-500">Defina a data de retorno para ativar o painel de férias.</p>
-                         </div>
-                     </div>
-                     <div className="flex items-center gap-2 w-full sm:w-auto">
-                        <div className="relative flex-1 sm:flex-none">
-                            <CalendarIcon size={14} className="absolute left-3 top-2.5 text-orange-400" />
-                            <input 
-                                type="date"
-                                value={tempVacationDate}
-                                onChange={(e) => setTempVacationDate(e.target.value)}
-                                className="pl-9 pr-3 py-1.5 bg-white border border-orange-200 rounded-lg text-sm text-slate-700 focus:ring-2 focus:ring-orange-400 outline-none w-full"
-                            />
-                        </div>
-                        <button 
-                            onClick={handleConfirmVacation}
-                            className="bg-orange-500 hover:bg-orange-600 text-white p-1.5 rounded-lg transition-colors shadow-sm flex items-center gap-1 px-3"
-                            title="Confirmar Data"
-                        >
-                            <Check size={16} />
-                            <span className="text-xs font-bold">Confirmar</span>
-                        </button>
-                         {selectedUser.vacationReturnDate && (
-                            <button 
-                                onClick={handleClearVacation}
-                                className="bg-white border border-slate-200 hover:bg-red-50 hover:text-red-500 text-slate-400 p-1.5 rounded-lg transition-colors"
-                                title="Remover Férias"
-                            >
-                                <Trash2 size={16} />
-                            </button>
-                        )}
-                     </div>
-                 </div>
+             {/* PUBLISH BUTTON (Admin Only) */}
+             {isAdmin && (
+                <button
+                    onClick={() => onTogglePublish(monthKey)}
+                    className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all w-full sm:w-auto shadow-sm border ${
+                    isPublished 
+                        ? 'bg-white text-green-600 border-green-200 hover:bg-green-50'
+                        : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                    }`}
+                >
+                    {isPublished ? (
+                    <>
+                        <CheckCircle2 size={16} className="text-green-600" />
+                        Publicado
+                    </>
+                    ) : (
+                    <>
+                        <AlertCircle size={16} className="text-slate-400" />
+                        Rascunho
+                    </>
+                    )}
+                </button>
              )}
+         </div>
+       </div>
 
-             {!canViewCalendar ? (
-                 <div className="flex flex-col items-center justify-center py-16 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
-                     <div className="bg-slate-100 p-4 rounded-full mb-4">
-                        <Lock size={32} className="text-slate-400" />
-                     </div>
-                     <h3 className="text-slate-700 font-bold text-lg">Escala não disponível</h3>
-                     <p className="text-slate-500 text-sm mt-2 max-w-xs text-center">
-                         A escala deste mês ainda não foi divulgada pela administração. Aguarde a publicação.
-                     </p>
-                 </div>
-             ) : (
-                 <>
-                    <div className="relative">
-                        <div className="overflow-x-auto pb-4 -mx-4 px-4 md:mx-0 md:px-0">
-                            <div className="grid grid-cols-7 gap-2 min-w-[800px] md:min-w-full">
-                                {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day => (
-                                    <div key={day} className="text-center text-[10px] font-bold text-slate-400 uppercase py-2">
-                                        {day}
-                                    </div>
-                                ))}
+        {/* 3. Calendar Content or Lock Logic */}
+        {!isAdmin && !isPublished ? (
+            <div className="bg-white rounded-2xl p-12 text-center border border-slate-100 shadow-sm flex flex-col items-center justify-center min-h-[400px]">
+                <div className={`bg-${themeColor}-50 p-6 rounded-full mb-6`}>
+                    <Lock size={48} className={`text-${themeColor}-300`} />
+                </div>
+                <h3 className="text-xl font-bold text-slate-800 mb-2">Escala em Definição</h3>
+                <p className="text-slate-500 max-w-md mx-auto">
+                A escala para <span className="font-bold text-slate-700">{currentDate.toLocaleDateString('pt-BR', { month: 'long' })}</span> ainda está sendo ajustada pela gerência. 
+                Você receberá uma notificação assim que estiver disponível.
+                </p>
+            </div>
+        ) : (
+            <>
+                {/* Monthly Calendar View */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                    <div className="p-6">
+                        <div className="grid grid-cols-7 gap-4 mb-4 text-center">
+                            {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(d => (
+                                <div key={d} className="text-xs font-bold text-slate-400 uppercase tracking-wider">{d}</div>
+                            ))}
+                        </div>
+                        <div className="grid grid-cols-7 gap-2 sm:gap-3">
+                            {/* Empty slots for previous month */}
+                            {Array.from({ length: firstDayOfMonth }).map((_, i) => (
+                                <div key={`empty-${i}`} className="min-h-[80px] sm:min-h-[110px] bg-slate-50/30 rounded-xl"></div>
+                            ))}
+                            
+                            {/* Days */}
+                            {Array.from({ length: daysInMonth }).map((_, i) => {
+                                const day = i + 1;
+                                const schedules = getDaySchedules(day);
+                                // For admin, show current user context (userId) toggle status to allow editing "their" view or the main view logic
+                                const userSchedule = dailySchedules.find(s => s.date === `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` && s.userId === userId);
+                                
+                                const dayDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+                                const dayOfWeek = dayDate.getDay();
+                                const isSunday = dayOfWeek === 0;
+                                const weekDayName = dayDate.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '').toUpperCase();
 
-                                {Array.from({ length: firstDay }).map((_, i) => (
-                                    <div key={`empty-${i}`} className="h-24 md:h-28 rounded-2xl bg-slate-50/50" />
-                                ))}
+                                // Check for pending request to highlight
+                                const reqDateStr = formatRequestDate(day);
+                                const hasPendingRequest = requests.some(r => r.date === reqDateStr && (isAdmin || r.userId === userId) && r.status === 'pending');
 
-                                {Array.from({ length: days }).map((_, i) => {
-                                    const day = i + 1;
-                                    const currentDayDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-                                    const isToday = new Date().toDateString() === currentDayDate.toDateString();
-                                    const weekDayName = currentDayDate.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
-                                    
-                                    const dayFormatted = String(day).padStart(2, '0');
-                                    const monthFormatted = String(currentMonth.getMonth() + 1).padStart(2, '0');
-                                    const requestDateStr = `${dayFormatted}/${monthFormatted}`;
+                                // Default Styling - Start with WORK (Blue) as default for everyone
+                                let cellClass = getStatusColorClass('Work');
+                                let statusText = 'TRABALHO';
+                                
+                                if (userSchedule) {
+                                    // Use explicit override if exists
+                                    cellClass = getStatusColorClass(userSchedule.type);
+                                    statusText = getStatusLabel(userSchedule.type);
+                                } 
 
-                                    const status = getDailyStatus(day);
-
-                                    const pendingRequest = requests.find(r => 
-                                        r.userId === selectedUserId && 
-                                        r.date === requestDateStr && 
-                                        r.status === 'pending'
-                                    );
-                                    
-                                    let bgClass = 'bg-slate-50 border-slate-100'; 
-                                    let textClass = 'text-slate-400';
-                                    let statusLabel = '';
-                                    let isPending = false;
-
-                                    if (status) {
-                                        if (status.type === 'Work') {
-                                            bgClass = `bg-${themeColor}-600 shadow-md shadow-${themeColor}-200 border-${themeColor}-500`;
-                                            textClass = `text-white`;
-                                            statusLabel = 'Trabalho';
-                                        } else if (status.type === 'SundayOff') {
-                                            bgClass = 'bg-purple-600 shadow-md shadow-purple-200 border-purple-500';
-                                            textClass = 'text-white';
-                                            statusLabel = 'Folga Dom.';
-                                        } else if (status.type === 'Off') {
-                                            bgClass = 'bg-emerald-600 shadow-md shadow-emerald-200 border-emerald-500';
-                                            textClass = 'text-white';
-                                            statusLabel = 'Folga';
-                                        } else if (status.type === 'Vacation') {
-                                            bgClass = 'bg-orange-500 shadow-md shadow-orange-200 border-orange-400';
-                                            textClass = 'text-white';
-                                            statusLabel = 'Férias';
-                                        }
-                                    }
-
-                                    if (userRole === 'admin' && pendingRequest && (!status || ('isDefault' in status))) {
-                                        bgClass = 'bg-amber-400 shadow-md shadow-amber-200 border-amber-400';
-                                        textClass = 'text-white';
-                                        statusLabel = 'Solicitação';
-                                        isPending = true;
-                                    }
-
-                                    return (
-                                        <div 
-                                            key={day} 
-                                            onClick={() => !isPending && handleDayClick(day)}
-                                            className={`
-                                                h-24 md:h-28 p-2 flex flex-col justify-between transition-all relative rounded-2xl border cursor-default select-none
-                                                ${bgClass}
-                                                ${(userRole === 'admin' && !isPending) ? (isVacationMode ? 'cursor-pointer ring-2 ring-orange-400 scale-95 opacity-90' : 'cursor-pointer active:scale-95 hover:opacity-90') : ''}
-                                                ${isToday ? `ring-2 ring-offset-2 ring-offset-white ring-yellow-500 z-10` : ''}
-                                            `}
-                                        >
-                                            <div className="flex justify-between items-start">
-                                                <span className={`text-[10px] font-bold ${textClass} opacity-70 uppercase truncate`}>{weekDayName}</span>
-                                                <span className={`text-xs md:text-sm font-bold ${textClass}`}>{day}</span>
-                                            </div>
-                                            
-                                            <div className="mt-1 text-right flex justify-end items-end h-full overflow-hidden">
-                                                {isPending ? (
-                                                    <div className="flex gap-1 bg-white/20 p-1 rounded-lg backdrop-blur-sm">
-                                                        <button 
-                                                            onClick={(e) => { e.stopPropagation(); onResolveRequest(pendingRequest!.id, 'approved'); }}
-                                                            className="bg-green-500 text-white p-1 rounded hover:bg-green-600 transition-colors"
-                                                            title="Aprovar"
-                                                        >
-                                                            <Check size={12} strokeWidth={3} />
-                                                        </button>
-                                                        <button 
-                                                            onClick={(e) => { e.stopPropagation(); onResolveRequest(pendingRequest!.id, 'rejected'); }}
-                                                            className="bg-red-500 text-white p-1 rounded hover:bg-red-600 transition-colors"
-                                                            title="Negar"
-                                                        >
-                                                            <X size={12} strokeWidth={3} />
-                                                        </button>
-                                                    </div>
-                                                ) : (
-                                                    statusLabel && (
-                                                        <span className={`text-[10px] font-bold ${textClass} uppercase tracking-tight opacity-90 whitespace-nowrap w-full block truncate shrink-0`}>
-                                                            {statusLabel}
-                                                        </span>
-                                                    )
-                                                )}
-                                            </div>
+                                return (
+                                    <div 
+                                        key={day} 
+                                        onClick={() => handleDayClick(day)}
+                                        className={`
+                                            min-h-[80px] sm:min-h-[110px] rounded-xl p-2 sm:p-3 transition-all relative group flex flex-col border shadow-sm cursor-pointer hover:shadow-md hover:scale-[1.02]
+                                            ${cellClass}
+                                            ${hasPendingRequest ? 'ring-2 ring-yellow-400 border-yellow-400 z-10' : ''}
+                                        `}
+                                    >
+                                        <div className="flex justify-between items-start mb-1 text-[10px] sm:text-xs font-bold opacity-90">
+                                            <span className="uppercase">{weekDayName}</span>
+                                            <span>{day}</span>
                                         </div>
-                                    );
-                                })}
+                                        
+                                        <div className="flex-1 flex items-center justify-center flex-col overflow-hidden">
+                                            <span className="font-bold text-[10px] sm:text-xs tracking-wide uppercase text-center break-words w-full">
+                                                {statusText}
+                                            </span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Footer Legend */}
+                    <div className="bg-slate-50 border-t border-slate-100 p-4">
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <div className="flex flex-wrap justify-center gap-4 text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                                <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-blue-600"></span>Trabalho</div>
+                                <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-purple-600"></span>Folga Domingo</div>
+                                <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-emerald-500"></span>Folga Semanal</div>
+                                <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-orange-500"></span>Férias</div>
+                                <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-transparent border-2 border-yellow-400"></span>Solicitação Pendente</div>
+                            </div>
+                            
+                            <div className="hidden sm:flex items-center text-slate-400 text-xs">
+                                <MousePointer2 size={12} className="mr-1.5" />
+                                {isAdmin ? 'Clique para alternar status' : 'Arraste para ver completo'}
                             </div>
                         </div>
-                        <div className="md:hidden flex items-center justify-center text-xs text-slate-400 mt-2 bg-slate-50 py-1.5 rounded-lg border border-slate-100">
-                             <MoveHorizontal size={14} className="mr-2" />
-                             Arraste para ver o calendário completo
-                        </div>
                     </div>
-
-                    <div className="mt-6 flex gap-4 text-xs text-slate-500 justify-center sm:justify-start flex-wrap">
-                        <div className="flex items-center"><div className={`w-3 h-3 bg-${themeColor}-600 rounded-full mr-2`}></div> Trabalho</div>
-                        <div className="flex items-center"><div className="w-3 h-3 bg-purple-600 rounded-full mr-2"></div> Folga Domingo</div>
-                        <div className="flex items-center"><div className="w-3 h-3 bg-emerald-600 rounded-full mr-2"></div> Folga Semanal</div>
-                        <div className="flex items-center"><div className="w-3 h-3 bg-orange-500 rounded-full mr-2"></div> Férias</div>
-                        {userRole === 'admin' && <div className="flex items-center"><div className="w-3 h-3 bg-amber-400 rounded-full mr-2"></div> Solicitação Pendente</div>}
-                    </div>
-                 </>
-             )}
-      </div>
-
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-         <div className="flex items-center space-x-2 mb-6">
-            <div className={`p-2 rounded-lg bg-${themeColor}-50 text-${themeColor}-600`}>
-              <CalendarPlus size={18} strokeWidth={2.5} />
-            </div>
-            <h3 className="font-bold text-slate-800 text-sm">Solicitação de Folga Dominical</h3>
-         </div>
-
-         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="space-y-4">
-                <p className="text-sm text-slate-500 font-medium">Solicite um domingo específico para o mês de <span className="text-slate-800 font-bold">{getNextMonthName()}</span>.</p>
-                
-                {isSundayOffEnabled ? (
-                  <>
-                    <form onSubmit={handleRequestSubmit} className="flex gap-3">
-                        <div className="relative flex-1">
-                            <select 
-                              value={selectedSunday}
-                              onChange={(e) => setSelectedSunday(e.target.value)}
-                              className="w-full bg-white border border-slate-300 text-slate-700 text-sm rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none appearance-none"
-                              required
-                            >
-                              <option value="">Selecione um domingo...</option>
-                              {getNextMonthSundays().map(date => (
-                                <option key={date} value={date}>Domingo - {date}</option>
-                              ))}
-                            </select>
-                        </div>
-                        <button 
-                          type="submit"
-                          className={`bg-${themeColor}-600 hover:bg-${themeColor}-700 text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-${themeColor}-500/20 transition-all`}
-                        >
-                            Solicitar
-                        </button>
-                    </form>
-                    <p className="text-xs text-slate-400 italic mt-2">
-                       * Se aprovado, seu calendário será atualizado automaticamente.
-                    </p>
-                  </>
-                ) : (
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center text-slate-500">
-                     <XCircle size={18} className="mr-2 text-slate-400" />
-                     <span className="text-sm font-medium">Solicitações pausadas pela administração.</span>
-                  </div>
-                )}
-
-                {userRole !== 'admin' && userRequests.length > 0 && (
-                    <div className="mt-6 pt-6 border-t border-slate-100">
-                        <h4 className="text-xs font-bold text-slate-500 uppercase mb-3">Suas Solicitações Recentes</h4>
-                        <div className="space-y-2">
-                            {userRequests.map(req => (
-                                <div key={req.id} className="flex justify-between items-center bg-slate-50 p-3 rounded-lg border border-slate-100">
-                                    <div>
-                                        <p className="text-sm font-bold text-slate-700">Domingo - {req.date}</p>
-                                        <p className="text-[10px] text-slate-400">{req.requestDate}</p>
-                                    </div>
-                                    <div className="flex items-center space-x-3">
-                                        <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border ${
-                                            req.status === 'approved' ? 'bg-green-50 text-green-600 border-green-200' :
-                                            req.status === 'rejected' ? 'bg-red-50 text-red-600 border-red-200' :
-                                            'bg-amber-50 text-amber-600 border-amber-200'
-                                        }`}>
-                                            {req.status === 'approved' ? 'Aprovada' : req.status === 'rejected' ? 'Negada' : 'Pendente'}
-                                        </span>
-                                        
-                                        <button 
-                                            onClick={() => onDeleteRequest(req.id)}
-                                            className="text-slate-400 hover:text-red-500 transition-colors"
-                                            title="Excluir solicitação"
-                                        >
-                                            <Trash2 size={14} />
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            {userRole === 'admin' && (
-                <div className="border-t md:border-t-0 md:border-l border-slate-100 md:pl-8 pt-6 md:pt-0">
-                    <h4 className="text-sm font-bold text-slate-700 mb-4 flex items-center justify-between">
-                        Solicitações da Equipe
-                        {pendingRequests.length > 0 && <span className="bg-red-100 text-red-600 border border-red-200 px-2 py-0.5 rounded-full text-xs">{pendingRequests.length} pendentes</span>}
-                    </h4>
-                    
-                    {pendingRequests.length === 0 ? (
-                        <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                            <p className="text-slate-400 text-sm">Nenhuma solicitação pendente.</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-3">
-                            {pendingRequests.map(req => (
-                                <div key={req.id} className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <div>
-                                            <p className="text-sm font-bold text-slate-800">{req.userName}</p>
-                                            <p className="text-xs text-slate-500 font-medium mb-1">{users.find(u => u.id === req.userId)?.jobTitle || 'Func.'}</p>
-                                            <p className="text-xs text-slate-400">Solicitou para: <span className="font-semibold text-slate-600">{req.date}</span></p>
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-2 mt-3">
-                                        <button 
-                                           onClick={() => onResolveRequest(req.id, 'approved')}
-                                           className="flex-1 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-bold py-2 rounded-lg transition-colors flex items-center justify-center border border-green-200"
-                                        >
-                                            <CheckCircle size={14} className="mr-1.5" /> Aceitar
-                                        </button>
-                                        <button 
-                                           onClick={() => onResolveRequest(req.id, 'rejected')}
-                                           className="flex-1 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold py-2 rounded-lg transition-colors flex items-center justify-center border border-red-200"
-                                        >
-                                            <XCircle size={14} className="mr-1.5" /> Negar
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
                 </div>
-            )}
-         </div>
-      </div>
+            </>
+        )}
+
+        {/* Requests Section (Admin) */}
+        {isAdmin && requests.length > 0 && (
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 mt-8">
+                <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                        <AlertCircle size={20} className="text-orange-500" />
+                        Solicitações Pendentes
+                    </h3>
+                </div>
+                <div className="space-y-3">
+                    {requests.map(req => (
+                        <div key={req.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200 gap-4">
+                             <div className="flex items-center gap-4">
+                                 <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-slate-500 font-bold border border-slate-200 shadow-sm text-sm">
+                                     {req.userName.substring(0,2).toUpperCase()}
+                                 </div>
+                                 <div>
+                                     <p className="font-bold text-slate-800">{req.userName}</p>
+                                     <p className="text-sm text-slate-500">Solicitou folga para <span className="font-bold text-slate-700">{req.date}</span></p>
+                                 </div>
+                             </div>
+                             <div className="flex items-center gap-2 self-end sm:self-auto">
+                                 {req.status === 'pending' ? (
+                                     <>
+                                         <button 
+                                            onClick={() => onResolveRequest(req.id, 'approved')}
+                                            className="px-4 py-2 bg-green-600 text-white text-xs font-bold rounded-lg hover:bg-green-700 transition-colors shadow-sm"
+                                         >
+                                             Aprovar
+                                         </button>
+                                         <button 
+                                            onClick={() => onResolveRequest(req.id, 'rejected')}
+                                            className="px-4 py-2 bg-red-100 text-red-600 text-xs font-bold rounded-lg hover:bg-red-200 transition-colors"
+                                         >
+                                             Recusar
+                                         </button>
+                                     </>
+                                 ) : (
+                                     <span className={`px-3 py-1 rounded-lg text-xs font-bold uppercase ${req.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                         {req.status === 'approved' ? 'Aprovado' : 'Recusado'}
+                                     </span>
+                                 )}
+                                 <button onClick={() => onDeleteRequest(req.id)} className="p-2 text-slate-400 hover:text-red-500 transition-colors"><Trash2 size={16} /></button>
+                             </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        )}
     </div>
   );
 };
