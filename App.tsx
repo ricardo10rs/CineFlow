@@ -14,6 +14,7 @@ import { VacationMode } from './components/VacationMode';
 import { ScheduledVacations } from './components/ScheduledVacations';
 import { QrCodeGenerator } from './components/QrCodeGenerator';
 import { UploadModal } from './components/UploadModal';
+import { Subscription } from './components/Subscription'; // Added import
 
 import { User, AppItem, WorkShift, DailySchedule, OffRequest, Branch, ThemeColor, HolidayEvent, BreakSession, VacationSchedule, DirectMessage, ContentType, Notification, AnnouncementItem, DocumentItem } from './types';
 import { analyzeContent } from './services/geminiService';
@@ -881,6 +882,12 @@ export default function App() {
                     onDeleteQrCode={handleDeleteUserQrCode}
                  />
              )}
+
+             {/* SUBSCRIPTION COMPONENT RENDER */}
+             {activeTab === 'subscription' && (
+                 <Subscription themeColor={currentTheme} />
+             )}
+
           </div>
         </div>
       </main>

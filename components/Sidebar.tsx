@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Megaphone, Settings, LogOut, CalendarClock, Users, Building, Timer, Clock, GripVertical, LucideIcon, MessageCircle, Hexagon, CalendarRange, CalendarDays, QrCode, FileText, Palmtree } from 'lucide-react';
+import { Megaphone, Settings, LogOut, CalendarClock, Users, Building, Timer, Clock, GripVertical, LucideIcon, MessageCircle, Hexagon, CalendarRange, CalendarDays, QrCode, FileText, Palmtree, CreditCard } from 'lucide-react';
 import { User, ThemeColor } from '../types';
 
 interface SidebarProps {
@@ -65,6 +65,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           { id: 'branches', icon: Building, label: 'Unidades' },
           { id: 'team', icon: Users, label: 'Admin & Equipes' },
           { id: 'schedulings', icon: CalendarDays, label: 'Férias' },
+          { id: 'subscription', icon: CreditCard, label: 'Assinatura' },
           { id: 'settings', icon: Settings, label: 'Configurações' }
         ];
     } else {
