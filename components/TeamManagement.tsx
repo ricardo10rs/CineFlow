@@ -667,9 +667,9 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
                 </div>
               ) : (
                 processedUsers.map((u) => (
-                  <div key={u.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors group">
+                  <div key={u.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between hover:bg-slate-50 transition-colors group">
                     <div className="flex items-center space-x-4">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 text-slate-500 flex items-center justify-center font-bold text-sm border border-slate-100 overflow-hidden">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 text-slate-500 flex items-center justify-center font-bold text-sm border border-slate-100 overflow-hidden shrink-0">
                          {u.avatar.length > 5 ? (
                             <img src={u.avatar} alt={u.name} className="w-full h-full object-cover" />
                          ) : (
@@ -697,10 +697,15 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
                              <span className="text-slate-300 text-[10px] hidden sm:inline">•</span>
                              <p className="text-[10px] text-slate-400 capitalize">{u.gender === 'male' ? 'Masc.' : 'Fem.'}</p>
                         </div>
+                        {/* PASSWORD DISPLAY */}
+                        <div className="mt-1 flex items-center gap-1 text-[10px] bg-slate-100 w-fit px-1.5 py-0.5 rounded border border-slate-200">
+                            <Lock size={10} className="text-slate-400" />
+                            <span className="text-slate-600 font-mono select-all">{u.password || '******'}</span>
+                        </div>
                       </div>
                     </div>
                     
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-3 mt-3 sm:mt-0">
                       <span className={`hidden sm:inline-block px-3 py-1 rounded-full text-xs font-bold border ${
                         u.role === 'admin' 
                           ? 'bg-purple-50 text-purple-600 border-purple-200' 
@@ -719,25 +724,22 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
                         <MessageSquare size={16} />
                       </button>
 
-                      {!isSuperAdmin && (
-                          <>
-                            <button 
-                                onClick={() => handleEditClick(u)}
-                                className="text-slate-400 hover:text-blue-500 transition-colors p-2 bg-white rounded-lg border border-slate-200"
-                                title="Editar Usuário"
-                            >
-                                <Pencil size={16} />
-                            </button>
+                      {/* ALLOW EDIT/DELETE FOR SUPER ADMIN TOO */}
+                      <button 
+                          onClick={() => handleEditClick(u)}
+                          className="text-slate-400 hover:text-blue-500 transition-colors p-2 bg-white rounded-lg border border-slate-200"
+                          title="Editar Usuário"
+                      >
+                          <Pencil size={16} />
+                      </button>
 
-                            <button 
-                                onClick={() => handleDeleteClick(u.id, u.name)}
-                                className="text-slate-400 hover:text-red-500 transition-colors p-2 bg-white rounded-lg border border-slate-200 opacity-0 group-hover:opacity-100"
-                                title="Excluir Usuário"
-                            >
-                                <Trash2 size={16} />
-                            </button>
-                          </>
-                      )}
+                      <button 
+                          onClick={() => handleDeleteClick(u.id, u.name)}
+                          className="text-slate-400 hover:text-red-500 transition-colors p-2 bg-white rounded-lg border border-slate-200 opacity-0 group-hover:opacity-100"
+                          title="Excluir Usuário"
+                      >
+                          <Trash2 size={16} />
+                      </button>
                     </div>
                   </div>
                 ))

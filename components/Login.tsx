@@ -58,11 +58,11 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRegister, onRecoverPass
         await onRegister(name, email, password, phone);
       } else {
         await onRecoverPassword(email);
-        setSuccessMsg('Sua senha foi enviada para o email cadastrado.');
+        setSuccessMsg('As credenciais de acesso cadastradas pelo administrador foram enviadas para o seu email.');
         setTimeout(() => {
           setMode('login');
           setSuccessMsg('');
-        }, 3000);
+        }, 5000);
       }
     } catch (err: any) {
       setError(err.message || 'Ocorreu um erro.');

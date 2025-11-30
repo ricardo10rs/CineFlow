@@ -262,7 +262,19 @@ export default function App() {
   };
 
   const handleRecoverPassword = async (email: string) => {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Simulation of checking backend
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      const userExists = users.find(u => u.email === email);
+      
+      if (!userExists) {
+           throw new Error("Email não encontrado no sistema.");
+      }
+      
+      // In a real application, we would call an API to send the CURRENT credentials via email.
+      // Since we can't send real emails, we just resolve successfully to trigger the UI message.
+      // The requirement is to send the *existing* credentials, NOT reset them.
+      console.log(`[SIMULAÇÃO] Credenciais enviadas para ${email}: Senha = ${userExists.password}`);
   };
 
   const handleAddItem = async (title: string, content: string, type: ContentType, file?: File, durationDays?: number | null) => {
@@ -446,6 +458,10 @@ export default function App() {
           setUsers([...users, newAdmin]);
           addNotification('Admin Criado', `Usuário admin criado para a unidade ${name}.`, 'success');
       }
+  };
+  
+  const handleUpdateBranch = (id: string, data: Partial<Branch>) => {
+      setBranches(branches.map(b => b.id === id ? { ...b, ...data } : b));
   };
 
   const handleDeleteBranch = (id: string) => {
@@ -887,8 +903,10 @@ export default function App() {
              {activeTab === 'branches' && (
                  <BranchManagement 
                     branches={branches}
+                    users={users}
                     onAddBranch={handleAddBranch}
                     onDeleteBranch={handleDeleteBranch}
+                    onUpdateBranch={handleUpdateBranch}
                  />
              )}
 
