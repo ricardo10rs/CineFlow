@@ -81,7 +81,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRegister, onRecoverPass
 
   const getSubtitle = () => {
       switch(mode) {
-          case 'login': return 'Acesso Corporativo.';
+          case 'login': return 'Soluções em gestão e comunicação empresarial.';
           case 'register': return 'Crie sua conta de Super Administrador.';
           case 'recovery': return 'Informe seu email para continuar.';
       }
