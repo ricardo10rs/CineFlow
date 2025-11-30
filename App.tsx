@@ -15,8 +15,8 @@ import { ScheduledVacations } from './components/ScheduledVacations';
 import { QrCodeGenerator } from './components/QrCodeGenerator';
 import { UploadModal } from './components/UploadModal';
 import { Subscription } from './components/Subscription'; 
-import { NotificationToast } from './components/NotificationToast'; // New
-import { NotificationCenter } from './components/NotificationCenter'; // New
+import { NotificationToast } from './components/NotificationToast'; 
+import { NotificationCenter } from './components/NotificationCenter'; 
 
 import { User, AppItem, WorkShift, DailySchedule, OffRequest, Branch, ThemeColor, HolidayEvent, BreakSession, VacationSchedule, DirectMessage, ContentType, Notification, AnnouncementItem, DocumentItem } from './types';
 import { analyzeContent } from './services/geminiService';
@@ -32,7 +32,7 @@ const MOCK_USERS: User[] = [
   { id: 'u1', name: 'Admin Geral', email: 'super@arco.com', role: 'super_admin', avatar: 'AG', password: '123', themeColor: 'blue', notificationPrefs: { email: true, sms: true }, gender: 'male' },
   { id: 'u2', name: 'Gerente SP', email: 'admin@empresa.com', role: 'admin', branchId: '1', avatar: 'GS', password: '123', themeColor: 'green', notificationPrefs: { email: true, sms: true }, gender: 'male' },
   { id: 'u3', name: 'Maria Silva', email: 'maria@empresa.com', role: 'employee', branchId: '1', avatar: 'MS', password: '123', jobTitle: 'Recepcionista', themeColor: 'purple', notificationPrefs: { email: true, sms: true }, gender: 'female', hasQrCodeAccess: false },
-  { id: 'u4', name: 'João Santos', email: 'joao@empresa.com', role: 'employee', branchId: '1', avatar: 'JS', password: '123', jobTitle: 'Vendedor', themeColor: 'orange', notificationPrefs: { email: false, sms: true }, gender: 'male' },
+  { id: 'u4', name: 'João Santos', email: 'joao@empresa.com', role: 'employee', branchId: '1', avatar: 'JS', password: '123', jobTitle: 'Atendente de Bomboniere', themeColor: 'orange', notificationPrefs: { email: false, sms: true }, gender: 'male' },
 ];
 
 const MOCK_ITEMS: AppItem[] = [
@@ -49,6 +49,7 @@ const MOCK_ITEMS: AppItem[] = [
 ];
 
 // Standard Shift Order (Sunday to Saturday)
+// Sunday starts as Work at 13:00 per request
 const MOCK_SHIFTS: WorkShift[] = [
   { id: 's1', branchId: '1', dayOfWeek: 'Domingo', dayIndex: 0, startTime: '13:00', endTime: '22:00', type: 'Work' },
   { id: 's2', branchId: '1', dayOfWeek: 'Segunda', dayIndex: 1, startTime: '09:00', endTime: '18:00', type: 'Work' },
@@ -84,14 +85,13 @@ export default function App() {
   
   // Notification States
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [toasts, setToasts] = useState<Notification[]>([]); // Ephemeral toasts
+  const [toasts, setToasts] = useState<Notification[]>([]); 
   const [isNotifCenterOpen, setIsNotifCenterOpen] = useState(false);
 
-  // Added new job titles
-  const [jobTitles, setJobTitles] = useState<string[]>(['Gerente', 'Sub-gerente', 'Recepcionista', 'Vendedor', 'Atendente de Bomboniere', 'Auxiliar de Limpeza']);
+  const [jobTitles, setJobTitles] = useState<string[]>(['Gerente', 'Sub-gerente', 'Recepcionista', 'Atendente de Bomboniere', 'Auxiliar de Limpeza']);
   const [publishedMonths, setPublishedMonths] = useState<string[]>([]);
 
-  // Settings - Changed defaults to false (disabled) for employee-facing features
+  // Settings
   const [isSundayOffEnabled, setIsSundayOffEnabled] = useState(false);
   const [isWeeklyScheduleEnabled, setIsWeeklyScheduleEnabled] = useState(true);
   const [isMessagesTabEnabled, setIsMessagesTabEnabled] = useState(false);
@@ -107,7 +107,6 @@ export default function App() {
   const visibleItems = useMemo(() => {
     return items.filter(i => {
        if (user?.role === 'super_admin') return true;
-       // Filter by branch if user has branchId
        if (user?.branchId && i.branchId !== user.branchId) return false;
        return true;
     });
@@ -131,7 +130,6 @@ export default function App() {
       return messages.filter(m => m.userId === user.id);
   }, [messages, user]);
 
-  // Filter Notifications for current user
   const userNotifications = useMemo(() => {
       if (!user) return [];
       return notifications.filter(n => 
@@ -142,7 +140,6 @@ export default function App() {
   }, [notifications, user]);
 
   const unreadNotificationsCount = userNotifications.filter(n => !n.read).length;
-
   const activeBreaks = useMemo(() => breakSessions.filter(b => !b.completedAt), [breakSessions]);
   
   const visibleVacationSchedules = useMemo(() => {
@@ -164,7 +161,6 @@ export default function App() {
       return false;
   }, [user]);
 
-  // Synced Effects
   useEffect(() => {
       if (user) {
           const updatedUserRecord = users.find(u => u.id === user.id);
@@ -186,7 +182,6 @@ export default function App() {
       else setMessageStatus('none');
   }, [userMessages, user]);
 
-  // --- NOTIFICATION HELPER ---
   const addNotification = (title: string, message: string, type: 'info' | 'success' | 'warning', targetUserId?: string) => {
       const newNotif: Notification = {
           id: Date.now().toString() + Math.random(),
@@ -201,7 +196,6 @@ export default function App() {
       
       setNotifications(prev => [newNotif, ...prev]);
       
-      // Trigger Toast ONLY if it targets current user or is global
       const shouldShowToast = !user || !targetUserId || targetUserId === user.id || 
                               (user.role === 'admin' && targetUserId === 'ADMIN_BRANCH_' + user.branchId);
 
@@ -219,15 +213,13 @@ export default function App() {
   };
 
   const handleClearNotifications = () => {
-      // Only clear for current user scope
       if (!user) return;
       setNotifications(prev => prev.filter(n => {
           const isForUser = !n.targetUserId || n.targetUserId === user.id;
-          return !isForUser; // Keep others, remove users
+          return !isForUser; 
       }));
   };
 
-  // Handlers
   const handleLogin = async (email: string, pass: string) => {
     const foundUser = users.find(u => u.email === email && (u.password === pass || pass === '123'));
     if (foundUser) {
@@ -242,32 +234,35 @@ export default function App() {
     }
   };
 
-  const handleLogout = () => {
-    setUser(null);
-    setActiveTab('announcements');
-    // Clear toasts on logout
-    setToasts([]);
-  };
+  const handleRegister = async (name: string, email: string, pass: string, phone: string) => {
+      const existing = users.find(u => u.email === email);
+      if (existing) throw new Error("Email já cadastrado.");
 
-  const handleRecoverPassword = async (email: string) => {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-  };
-
-  const handleRegister = async (company: string, name: string, email: string, pass: string, phone: string) => {
-      await new Promise(resolve => setTimeout(resolve, 1000));
       const newUser: User = {
           id: Date.now().toString(),
           name,
           email,
           password: pass,
-          role: 'admin',
-          avatar: name.substring(0,2).toUpperCase(),
+          role: 'super_admin',
+          avatar: name.substring(0, 2).toUpperCase(),
           phone,
           themeColor: 'blue',
-          notificationPrefs: { email: true, sms: true },
-          gender: 'male'
+          notificationPrefs: { email: true, sms: true }
       };
+
       setUsers([...users, newUser]);
+      setUser(newUser);
+      setActiveTab('branches');
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    setActiveTab('announcements');
+    setToasts([]);
+  };
+
+  const handleRecoverPassword = async (email: string) => {
+      await new Promise(resolve => setTimeout(resolve, 1000));
   };
 
   const handleAddItem = async (title: string, content: string, type: ContentType, file?: File, durationDays?: number | null) => {
@@ -290,13 +285,10 @@ export default function App() {
           expirationDate: durationDays ? new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000).toISOString() : undefined
       };
       setItems([newItem, ...items]);
-      
       addNotification('Novo Comunicado', `"${title}" foi publicado por ${user?.name}.`, 'info');
   };
 
-  const handleDeleteItem = (id: string) => {
-      setItems(items.filter(i => i.id !== id));
-  };
+  const handleDeleteItem = (id: string) => setItems(items.filter(i => i.id !== id));
 
   const handleStartBreak = (startTime: number) => {
       if (!user) return;
@@ -310,8 +302,6 @@ export default function App() {
           duration: 3600 
       };
       setBreakSessions([...breakSessions, newSession]);
-      
-      // Notify Admins of that branch
       addNotification('Início de Intervalo', `${user.name} iniciou o intervalo.`, 'info', `ADMIN_BRANCH_${user.branchId}`);
   };
 
@@ -375,10 +365,8 @@ export default function App() {
 
   const handleRequestOff = (dateIso: string) => {
       if (!user) return;
-      
       const [year, month, day] = dateIso.split('-');
       const displayDate = `${day}/${month}`;
-
       const newReq: OffRequest = {
           id: Date.now().toString(),
           branchId: user.branchId || '1',
@@ -390,8 +378,6 @@ export default function App() {
           requestDate: new Date().toLocaleDateString('pt-BR')
       };
       setRequests([...requests, newReq]);
-      
-      // Notify Admin
       addNotification('Solicitação de Folga', `${user.name} solicitou folga para ${displayDate}.`, 'warning', `ADMIN_BRANCH_${user.branchId}`);
   };
 
@@ -401,13 +387,11 @@ export default function App() {
 
       setRequests(prev => prev.map(r => {
           if (r.id === requestId) {
-              const updated = { ...r, status, resolutionDate: new Date().toISOString() };
-              return updated;
+              return { ...r, status, resolutionDate: new Date().toISOString() };
           }
           return r;
       }));
 
-      // Automatically update the calendar if approved
       if (status === 'approved' && targetReq.fullDate) {
           const newDailySchedule: DailySchedule = {
               id: Date.now().toString(),
@@ -415,15 +399,12 @@ export default function App() {
               date: targetReq.fullDate,
               type: 'SundayOff'
           };
-          
           setDailySchedules(currentSchedules => {
-              // Filter out existing schedules for that day/user to prevent duplicates/conflicts
               const filtered = currentSchedules.filter(s => !(s.userId === targetReq.userId && s.date === targetReq.fullDate));
               return [...filtered, newDailySchedule];
           });
       }
 
-      // Notify User
       addNotification(
           status === 'approved' ? 'Folga Aprovada' : 'Folga Recusada',
           `Sua solicitação para ${targetReq.date} foi ${status === 'approved' ? 'aprovada' : 'recusada'}.`,
@@ -442,14 +423,37 @@ export default function App() {
       }
   };
 
-  const handleAddBranch = (name: string, location: string) => {
-      setBranches([...branches, { id: Date.now().toString(), name, location }]);
+  // Updated to include Admin creation
+  const handleAddBranch = (name: string, location: string, adminEmail?: string, adminPass?: string) => {
+      const branchId = Date.now().toString();
+      const newBranch: Branch = { id: branchId, name, location };
+      setBranches([...branches, newBranch]);
+
+      // Automatically create Admin User if credentials provided
+      if (adminEmail && adminPass) {
+          const newAdmin: User = {
+              id: Date.now().toString() + 'u',
+              name: `Admin - ${name}`,
+              email: adminEmail,
+              password: adminPass,
+              role: 'admin',
+              branchId: branchId,
+              avatar: 'AD',
+              themeColor: 'blue',
+              notificationPrefs: { email: true, sms: true },
+              jobTitle: 'Gerente'
+          };
+          setUsers([...users, newAdmin]);
+          addNotification('Admin Criado', `Usuário admin criado para a unidade ${name}.`, 'success');
+      }
   };
 
   const handleDeleteBranch = (id: string) => {
       if(window.confirm("Tem certeza? Isso excluirá todos os funcionários e dados desta filial.")) {
           setBranches(branches.filter(b => b.id !== id));
           setShifts(prev => prev.filter(s => s.branchId !== id));
+          // Optionally delete users associated with this branch?
+          // setUsers(users.filter(u => u.branchId !== id));
       }
   };
 
@@ -470,8 +474,6 @@ export default function App() {
           attachment: file ? { name: file.name, url: URL.createObjectURL(file), type: file.type.includes('pdf') ? 'PDF' : 'IMAGE' } : undefined
       };
       setMessages([newMessage, ...messages]);
-
-      // Notify Recipient
       addNotification('Nova Mensagem', `Você recebeu uma mensagem de ${user.name}.`, 'info', targetUserId);
   };
 
@@ -497,7 +499,6 @@ export default function App() {
           return m;
       }));
 
-      // Notify Original Sender that a reply occurred
       if (originalMsg) {
           const targetId = user.id === originalMsg.senderId ? originalMsg.userId : originalMsg.senderId;
           if (targetId) {
@@ -520,8 +521,6 @@ export default function App() {
       };
       setVacationSchedules([...vacationSchedules, newVacation]);
       handleUpdateUser(userId, { vacationReturnDate: returnDate });
-      
-      // Notify User
       addNotification('Férias Agendadas', `Suas férias foram agendadas: ${startDate} até ${returnDate}.`, 'success', userId);
   };
 
@@ -534,7 +533,6 @@ export default function App() {
   };
 
   const generateBrazilianHolidays = (year: number): HolidayEvent[] => {
-        // ... (existing holiday logic) ...
         const fixedHolidays: Omit<HolidayEvent, 'id'>[] = [
             { date: `${year}-01-01`, name: 'Confraternização Universal', type: 'Feriado Nacional', color: 'green' },
             { date: `${year}-04-21`, name: 'Tiradentes', type: 'Feriado Nacional', color: 'red' },
@@ -545,7 +543,6 @@ export default function App() {
             { date: `${year}-11-15`, name: 'Proclamação da República', type: 'Feriado Nacional', color: 'green' },
             { date: `${year}-12-25`, name: 'Natal', type: 'Feriado Nacional', color: 'red' },
         ];
-        // Simplified for brevity in this response (keeping original logic in mind)
         return fixedHolidays.map((h, idx) => ({ ...h, id: `auto-${year}-${idx}` }));
   };
 
@@ -648,16 +645,14 @@ export default function App() {
     return (
         <Login 
             onLogin={handleLogin} 
-            onRecoverPassword={handleRecoverPassword} 
             onRegister={handleRegister}
+            onRecoverPassword={handleRecoverPassword} 
         />
     );
   }
 
   return (
     <div className={`flex min-h-screen font-sans theme-${currentTheme} overflow-hidden bg-slate-50 relative`}>
-      
-      {/* Toast Container */}
       <NotificationToast notifications={toasts} removeNotification={removeToast} />
 
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
@@ -693,11 +688,9 @@ export default function App() {
         </header>
 
         <div className={`flex-1 max-w-7xl mx-auto w-full ${activeTab === 'vacation' ? 'max-w-full' : ''}`}>
-          {/* Top Bar (Desktop) */}
           {!isOnVacation && (
             <div className="hidden md:flex justify-end mb-8 items-center space-x-6">
                 <div className="flex items-center space-x-2 relative">
-                    {/* Notification Bell with Dropdown */}
                     <div className="relative">
                         <button 
                             onClick={() => setIsNotifCenterOpen(!isNotifCenterOpen)}
@@ -732,7 +725,6 @@ export default function App() {
             </div>
           )}
 
-          {/* Content Area */}
           <div className="animate-fade-in h-full">
              {activeTab === 'announcements' && (
                 <>

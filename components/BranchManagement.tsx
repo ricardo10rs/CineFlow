@@ -1,24 +1,29 @@
 
 import React, { useState } from 'react';
 import { Branch } from '../types';
-import { Building, Plus, MapPin, Trash2 } from 'lucide-react';
+import { Building, Plus, MapPin, Trash2, Mail, Lock, UserCheck } from 'lucide-react';
 
 interface BranchManagementProps {
   branches: Branch[];
-  onAddBranch: (name: string, location: string) => void;
+  onAddBranch: (name: string, location: string, adminEmail: string, adminPass: string) => void;
   onDeleteBranch: (id: string) => void;
 }
 
 export const BranchManagement: React.FC<BranchManagementProps> = ({ branches, onAddBranch, onDeleteBranch }) => {
   const [name, setName] = useState('');
   const [location, setLocation] = useState('');
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminPass, setAdminPass] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (name && location) {
-      onAddBranch(name, location);
+    if (name && location && adminEmail && adminPass) {
+      onAddBranch(name, location, adminEmail, adminPass);
       setName('');
       setLocation('');
+      setAdminEmail('');
+      setAdminPass('');
+      alert("Unidade e Administrador criados com sucesso!");
     }
   };
 
@@ -32,7 +37,7 @@ export const BranchManagement: React.FC<BranchManagementProps> = ({ branches, on
     <div className="space-y-8 animate-fade-in">
       <div>
         <h2 className="text-xl font-bold text-slate-800">Gestão de Unidades</h2>
-        <p className="text-sm text-slate-500">Cadastre e gerencie as filiais da empresa.</p>
+        <p className="text-sm text-slate-500">Cadastre as filiais e defina as credenciais de acesso do administrador local.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -41,39 +46,80 @@ export const BranchManagement: React.FC<BranchManagementProps> = ({ branches, on
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 sticky top-8">
              <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
                 <Plus size={20} className="mr-2 text-blue-600" />
-                Nova Filial
+                Nova Filial & Admin
              </h3>
              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nome da Unidade</label>
-                    <div className="relative">
-                        <Building size={16} className="absolute left-3 top-3 text-slate-400" />
-                        <input 
-                            type="text"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm text-slate-700"
-                            placeholder="Ex: Matriz São Paulo"
-                            required
-                        />
+                
+                {/* Branch Info */}
+                <div className="space-y-4 border-b border-slate-100 pb-4">
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nome da Unidade</label>
+                        <div className="relative">
+                            <Building size={16} className="absolute left-3 top-3 text-slate-400" />
+                            <input 
+                                type="text"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm text-slate-700"
+                                placeholder="Ex: Matriz São Paulo"
+                                required
+                            />
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Localização</label>
+                        <div className="relative">
+                            <MapPin size={16} className="absolute left-3 top-3 text-slate-400" />
+                            <input 
+                                type="text"
+                                value={location}
+                                onChange={(e) => setLocation(e.target.value)}
+                                className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm text-slate-700"
+                                placeholder="Ex: Av. Paulista, 1000"
+                                required
+                            />
+                        </div>
                     </div>
                 </div>
-                <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Localização</label>
-                    <div className="relative">
-                        <MapPin size={16} className="absolute left-3 top-3 text-slate-400" />
-                        <input 
-                            type="text"
-                            value={location}
-                            onChange={(e) => setLocation(e.target.value)}
-                            className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm text-slate-700"
-                            placeholder="Ex: Av. Paulista, 1000"
-                            required
-                        />
+
+                {/* Admin Credentials */}
+                <div className="space-y-4">
+                    <p className="text-xs font-bold text-blue-600 flex items-center">
+                        <UserCheck size={14} className="mr-1" />
+                        Credenciais do Administrador
+                    </p>
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Email de Acesso</label>
+                        <div className="relative">
+                            <Mail size={16} className="absolute left-3 top-3 text-slate-400" />
+                            <input 
+                                type="email"
+                                value={adminEmail}
+                                onChange={(e) => setAdminEmail(e.target.value)}
+                                className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm text-slate-700"
+                                placeholder="admin.filial@empresa.com"
+                                required
+                            />
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Senha Provisória</label>
+                        <div className="relative">
+                            <Lock size={16} className="absolute left-3 top-3 text-slate-400" />
+                            <input 
+                                type="text"
+                                value={adminPass}
+                                onChange={(e) => setAdminPass(e.target.value)}
+                                className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm text-slate-700 font-mono"
+                                placeholder="******"
+                                required
+                            />
+                        </div>
                     </div>
                 </div>
-                <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-500/30 transition-all">
-                    Cadastrar Unidade
+
+                <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-500/30 transition-all mt-2">
+                    Cadastrar Unidade e Admin
                 </button>
              </form>
           </div>

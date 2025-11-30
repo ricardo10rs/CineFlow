@@ -69,17 +69,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
           { id: 'settings', icon: Settings, label: 'Configurações' }
         ];
     } else {
+        // Items common to Admin and Employee (excluding Intervalo initially)
         baseItems = [
           { id: 'announcements', icon: Megaphone, label: 'Avisos' },
-          { id: 'board', icon: Clock, label: 'Intervalo' },
           { id: 'schedule', icon: CalendarClock, label: 'Escalas' },
           { id: 'calendar', icon: CalendarRange, label: 'Feriados' },
         ];
 
+        // Add 'Intervalo' ONLY for employees
+        if (user.role === 'employee') {
+            baseItems.splice(1, 0, { id: 'board', icon: Clock, label: 'Intervalo' });
+        }
+
         // Messages tab: Always active for admins, OR if globally enabled, OR if status is not none
         const isAdmin = user.role === 'admin';
+        
+        // Insert messages tab at correct position (index 1 if admin, index 2 if employee)
+        const insertIndex = user.role === 'employee' ? 2 : 1;
+
         if (isAdmin || isMessagesTabEnabled || messageStatus !== 'none') {
-            baseItems.splice(1, 0, { id: 'messages', icon: MessageCircle, label: 'Mensagens' });
+            baseItems.splice(insertIndex, 0, { id: 'messages', icon: MessageCircle, label: 'Mensagens' });
         }
 
         if (user.role === 'admin') {

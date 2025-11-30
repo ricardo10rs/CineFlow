@@ -1,28 +1,27 @@
 
 import React, { useState, useEffect } from 'react';
-import { Lock, Mail, Loader2, ArrowLeft, User, Building, Phone, Hexagon, Eye, EyeOff } from 'lucide-react';
+import { Lock, Mail, Loader2, ArrowLeft, Hexagon, Eye, EyeOff, ShieldAlert, User, Phone } from 'lucide-react';
 
 interface LoginProps {
   onLogin: (email: string, pass: string) => Promise<void>;
+  onRegister: (name: string, email: string, pass: string, phone: string) => Promise<void>;
   onRecoverPassword: (email: string) => Promise<void>;
-  onRegister: (companyName: string, name: string, email: string, pass: string, phone: string) => Promise<void>;
 }
 
-export const Login: React.FC<LoginProps> = ({ onLogin, onRecoverPassword, onRegister }) => {
-  const [mode, setMode] = useState<'login' | 'recovery' | 'register'>('login');
+export const Login: React.FC<LoginProps> = ({ onLogin, onRegister, onRecoverPassword }) => {
+  const [mode, setMode] = useState<'login' | 'register' | 'recovery'>('login');
+  
+  // Form Fields
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [phone, setPhone] = useState('');
+  
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-
-  // Register specific states
-  const [regName, setRegName] = useState('');
-  const [regCompany, setRegCompany] = useState('');
-  const [regPhone, setRegPhone] = useState('');
-  const [regConfirmPass, setRegConfirmPass] = useState('');
 
   // Carregar credenciais salvas ao montar o componente
   useEffect(() => {
@@ -53,10 +52,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRecoverPassword, onRegi
           localStorage.removeItem('cineflow_saved_pass');
         }
       } else if (mode === 'register') {
-        if (password !== regConfirmPass) throw new Error("As senhas não coincidem.");
-        await onRegister(regCompany, regName, email, password, regPhone);
-        setSuccessMsg('Conta criada com sucesso!');
-        setTimeout(() => setMode('login'), 2000);
+        if (!name || !email || !password || !phone) {
+             throw new Error('Preencha todos os campos.');
+        }
+        await onRegister(name, email, password, phone);
       } else {
         await onRecoverPassword(email);
         setSuccessMsg('Sua senha foi enviada para o email cadastrado.');
@@ -72,6 +71,22 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRecoverPassword, onRegi
     }
   };
 
+  const getTitle = () => {
+      switch(mode) {
+          case 'login': return 'CineFlow';
+          case 'register': return 'Nova Empresa';
+          case 'recovery': return 'Recuperar';
+      }
+  };
+
+  const getSubtitle = () => {
+      switch(mode) {
+          case 'login': return 'Acesso Corporativo.';
+          case 'register': return 'Crie sua conta de Super Administrador.';
+          case 'recovery': return 'Informe seu email para continuar.';
+      }
+  };
+
   return (
     <div className="min-h-screen w-full relative flex flex-col items-center justify-center overflow-hidden bg-slate-900 font-sans">
       
@@ -82,7 +97,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRecoverPassword, onRegi
             alt="Workspace Background" 
             className="w-full h-full object-cover opacity-50"
         />
-        {/* Gradient Overlay - Matching the "Workout" reference style but with Blue/Indigo theme */}
+        {/* Gradient Overlay */}
         <div className="absolute inset-0 bg-gradient-to-b from-indigo-900/40 via-purple-900/80 to-slate-900"></div>
       </div>
 
@@ -102,14 +117,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRecoverPassword, onRegi
                 <Hexagon size={32} className="text-white" strokeWidth={2.5} />
             </div>
             <h1 className="text-5xl font-black text-white tracking-tight leading-none mb-3 drop-shadow-lg">
-                {mode === 'login' ? 'CineFlow' : mode === 'register' ? 'Criar Conta' : 'Recuperar'}
+                {getTitle()}
             </h1>
             <p className="text-indigo-100 text-lg font-medium opacity-90 max-w-2xl leading-relaxed">
-                {mode === 'login' 
-                    ? 'Soluções em gestão e comunicação empresarial.' 
-                    : mode === 'register' 
-                    ? 'Comece a gerenciar sua equipe hoje.' 
-                    : 'Informe seu email para continuar.'}
+                {getSubtitle()}
             </p>
         </div>
 
@@ -124,26 +135,28 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRecoverPassword, onRegi
                 <>
                     <div className="relative group">
                         <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
-                            <Building size={18} className="text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
-                        </div>
-                        <input type="text" value={regCompany} onChange={(e) => setRegCompany(e.target.value)} placeholder="Nome da Empresa" required
-                            className="block w-full pl-12 pr-5 py-4 bg-white rounded-full text-slate-900 font-medium placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-indigo-500/30 shadow-lg transition-all"
-                        />
-                    </div>
-                    <div className="relative group">
-                        <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
                             <User size={18} className="text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                         </div>
-                        <input type="text" value={regName} onChange={(e) => setRegName(e.target.value)} placeholder="Seu Nome" required
+                        <input
+                            type="text"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
                             className="block w-full pl-12 pr-5 py-4 bg-white rounded-full text-slate-900 font-medium placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-indigo-500/30 shadow-lg transition-all"
+                            placeholder="Nome da Empresa / Super Admin"
+                            required
                         />
                     </div>
                     <div className="relative group">
                         <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
                             <Phone size={18} className="text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                         </div>
-                        <input type="tel" value={regPhone} onChange={(e) => setRegPhone(e.target.value)} placeholder="Telefone" required
+                        <input
+                            type="tel"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
                             className="block w-full pl-12 pr-5 py-4 bg-white rounded-full text-slate-900 font-medium placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-indigo-500/30 shadow-lg transition-all"
+                            placeholder="Telefone Celular"
+                            required
                         />
                     </div>
                 </>
@@ -186,35 +199,23 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRecoverPassword, onRegi
                 </div>
             )}
 
-            {mode === 'register' && (
-                <div className="relative group">
-                    <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
-                        <Lock size={18} className="text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
-                    </div>
-                    <input
-                        type="password"
-                        value={regConfirmPass}
-                        onChange={(e) => setRegConfirmPass(e.target.value)}
-                        className="block w-full pl-12 pr-5 py-4 bg-white rounded-full text-slate-900 font-medium placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-indigo-500/30 shadow-lg transition-all"
-                        placeholder="Confirmar Senha"
-                        required
-                    />
-                </div>
-            )}
-
             <button
                 type="submit"
                 disabled={isLoading}
                 className="w-full flex justify-center items-center bg-indigo-600 hover:bg-indigo-700 text-white font-black tracking-wide text-sm py-4 px-6 rounded-full shadow-xl shadow-indigo-900/30 transform transition-all active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed mt-4"
             >
-                {isLoading ? <Loader2 className="animate-spin" size={20} /> : (mode === 'login' ? 'ENTRAR' : mode === 'register' ? 'CRIAR CONTA' : 'RECUPERAR')}
+                {isLoading ? (
+                    <Loader2 className="animate-spin" size={20} />
+                ) : (
+                    mode === 'login' ? 'ENTRAR' : mode === 'register' ? 'CRIAR CONTA SUPER ADMIN' : 'RECUPERAR'
+                )}
             </button>
         </form>
 
         {/* Footer Actions */}
         <div className="mt-8 w-full">
             {mode === 'login' && (
-                <div className="flex flex-col items-center space-y-4">
+                <div className="flex flex-col items-center space-y-6">
                     <div className="flex items-center space-x-2">
                         <input 
                             id="remember" 
@@ -226,12 +227,13 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRecoverPassword, onRegi
                         <label htmlFor="remember" className="text-sm font-medium text-white/80 cursor-pointer">Lembrar de mim</label>
                     </div>
                     
-                    <div className="flex justify-between w-full text-sm font-bold px-2">
-                        <button onClick={() => setMode('recovery')} className="text-indigo-200 hover:text-white transition-colors">
-                            Esqueceu a senha?
+                    <div className="flex flex-col items-center space-y-3 w-full">
+                        <button onClick={() => { setMode('register'); setError(''); }} className="w-full py-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white text-sm font-bold transition-colors">
+                            Criar Conta (Super Admin)
                         </button>
-                        <button onClick={() => setMode('register')} className="text-white hover:text-indigo-200 transition-colors">
-                            Criar conta
+                        
+                        <button onClick={() => setMode('recovery')} className="text-indigo-200 hover:text-white transition-colors text-sm font-medium">
+                            Esqueceu a senha?
                         </button>
                     </div>
                 </div>
@@ -244,21 +246,16 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRecoverPassword, onRegi
             )}
         </div>
 
-        {/* Demo Credentials - Restored Visibility */}
+        {/* Demo Credentials */}
         {mode === 'login' && (
             <div className="mt-8 p-5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 text-center w-full shadow-lg">
-                <p className="text-[10px] font-bold text-indigo-200 uppercase tracking-widest mb-3">Acesso Demo (Admin / Func)</p>
+                <p className="text-[10px] font-bold text-indigo-200 uppercase tracking-widest mb-3">Acesso Demo</p>
                 <div className="flex flex-col gap-2 text-sm text-white font-mono">
-                    <div className="flex justify-between items-center bg-black/20 p-2 rounded-lg">
-                        <span className="opacity-80">super@arco.com</span>
-                        <span className="font-bold">123</span>
-                    </div>
-                    <div className="flex justify-between items-center bg-black/20 p-2 rounded-lg">
-                        <span className="opacity-80">admin@empresa.com</span>
-                        <span className="font-bold">123</span>
-                    </div>
-                    <div className="flex justify-between items-center bg-black/20 p-2 rounded-lg">
-                        <span className="opacity-80">maria@empresa.com</span>
+                    <div className="flex justify-between items-center bg-black/20 p-2 rounded-lg border border-white/5">
+                        <div className="flex flex-col text-left">
+                            <span className="text-[10px] font-bold text-indigo-300 uppercase">Super Admin</span>
+                            <span className="opacity-80">super@arco.com</span>
+                        </div>
                         <span className="font-bold">123</span>
                     </div>
                 </div>
