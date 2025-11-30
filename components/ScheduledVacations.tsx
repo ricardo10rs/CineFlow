@@ -165,7 +165,7 @@ export const ScheduledVacations: React.FC<ScheduledVacationsProps> = ({
                                         user={user} 
                                         isSuperAdmin={isSuperAdmin} 
                                         branches={branches} 
-                                        onRemove={!isSuperAdmin && schedule ? () => {
+                                        onRemove={schedule ? () => {
                                             if(window.confirm(`Cancelar as férias de ${user.name}? O acesso ao sistema será restaurado imediatamente.`)) {
                                                 onDeleteSchedule(schedule.id);
                                             }
@@ -195,7 +195,7 @@ export const ScheduledVacations: React.FC<ScheduledVacationsProps> = ({
                                         user={user} 
                                         isSuperAdmin={isSuperAdmin} 
                                         branches={branches}
-                                        onRemove={!isSuperAdmin && schedule ? () => {
+                                        onRemove={schedule ? () => {
                                             if(window.confirm(`Cancelar as férias de ${user.name}? O acesso ao sistema será restaurado imediatamente.`)) {
                                                 onDeleteSchedule(schedule.id);
                                             }

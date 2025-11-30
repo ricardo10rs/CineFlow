@@ -120,9 +120,17 @@ export const HolidayCalendar: React.FC<HolidayCalendarProps> = ({
     }
   };
 
-  // Filter holidays by selected year and sort
+  // Filter holidays logic
   const filteredHolidays = holidays
-    .filter(h => h.date.startsWith(`${year}-`))
+    .filter(h => {
+        const matchesYear = h.date.startsWith(`${year}-`);
+        // If employee, hide past holidays
+        if (userRole === 'employee') {
+            const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+            return matchesYear && h.date >= today;
+        }
+        return matchesYear;
+    })
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   const isAdmin = userRole === 'admin' || userRole === 'super_admin';
@@ -364,7 +372,9 @@ export const HolidayCalendar: React.FC<HolidayCalendarProps> = ({
         {/* Empty State if all holidays filtered out or empty */}
         {filteredHolidays.length === 0 && (
              <div className="text-center py-16 bg-slate-50 rounded-3xl border border-dashed border-slate-200">
-                <p className="text-slate-400 font-medium">Nenhum feriado cadastrado para {year}.</p>
+                <p className="text-slate-400 font-medium">
+                    {userRole === 'employee' ? 'Nenhum feriado futuro encontrado para este ano.' : `Nenhum feriado cadastrado para ${year}.`}
+                </p>
                 {isAdmin && (
                     <button onClick={handleOpenAdd} className="text-blue-600 font-bold text-sm mt-2 hover:underline">
                         Adicionar o primeiro feriado de {year}

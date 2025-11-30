@@ -31,7 +31,7 @@ const MOCK_BRANCHES: Branch[] = [
 const MOCK_USERS: User[] = [
   { id: 'u1', name: 'Admin Geral', email: 'super@arco.com', role: 'super_admin', avatar: 'AG', password: '123', themeColor: 'blue', notificationPrefs: { email: true, sms: true }, gender: 'male' },
   { id: 'u2', name: 'Gerente SP', email: 'admin@empresa.com', role: 'admin', branchId: '1', avatar: 'GS', password: '123', themeColor: 'green', notificationPrefs: { email: true, sms: true }, gender: 'male' },
-  { id: 'u3', name: 'Maria Silva', email: 'maria@empresa.com', role: 'employee', branchId: '1', avatar: 'MS', password: '123', jobTitle: 'Recepcionista', themeColor: 'purple', notificationPrefs: { email: true, sms: true }, gender: 'female', hasQrCodeAccess: true },
+  { id: 'u3', name: 'Maria Silva', email: 'maria@empresa.com', role: 'employee', branchId: '1', avatar: 'MS', password: '123', jobTitle: 'Recepcionista', themeColor: 'purple', notificationPrefs: { email: true, sms: true }, gender: 'female', hasQrCodeAccess: false },
   { id: 'u4', name: 'João Santos', email: 'joao@empresa.com', role: 'employee', branchId: '1', avatar: 'JS', password: '123', jobTitle: 'Vendedor', themeColor: 'orange', notificationPrefs: { email: false, sms: true }, gender: 'male' },
 ];
 
@@ -50,7 +50,7 @@ const MOCK_ITEMS: AppItem[] = [
 
 // Standard Shift Order (Sunday to Saturday)
 const MOCK_SHIFTS: WorkShift[] = [
-  { id: 's1', branchId: '1', dayOfWeek: 'Domingo', dayIndex: 0, startTime: '-', endTime: '-', type: 'Off' },
+  { id: 's1', branchId: '1', dayOfWeek: 'Domingo', dayIndex: 0, startTime: '13:00', endTime: '22:00', type: 'Work' },
   { id: 's2', branchId: '1', dayOfWeek: 'Segunda', dayIndex: 1, startTime: '09:00', endTime: '18:00', type: 'Work' },
   { id: 's3', branchId: '1', dayOfWeek: 'Terça', dayIndex: 2, startTime: '09:00', endTime: '18:00', type: 'Work' },
   { id: 's4', branchId: '1', dayOfWeek: 'Quarta', dayIndex: 3, startTime: '09:00', endTime: '18:00', type: 'Work' },
@@ -87,13 +87,14 @@ export default function App() {
   const [toasts, setToasts] = useState<Notification[]>([]); // Ephemeral toasts
   const [isNotifCenterOpen, setIsNotifCenterOpen] = useState(false);
 
-  const [jobTitles, setJobTitles] = useState<string[]>(['Gerente', 'Recepcionista', 'Vendedor', 'Auxiliar de Limpeza']);
+  // Added new job titles
+  const [jobTitles, setJobTitles] = useState<string[]>(['Gerente', 'Sub-gerente', 'Recepcionista', 'Vendedor', 'Atendente de Bomboniere', 'Auxiliar de Limpeza']);
   const [publishedMonths, setPublishedMonths] = useState<string[]>([]);
 
-  // Settings
-  const [isSundayOffEnabled, setIsSundayOffEnabled] = useState(true);
+  // Settings - Changed defaults to false (disabled) for employee-facing features
+  const [isSundayOffEnabled, setIsSundayOffEnabled] = useState(false);
   const [isWeeklyScheduleEnabled, setIsWeeklyScheduleEnabled] = useState(true);
-  const [isMessagesTabEnabled, setIsMessagesTabEnabled] = useState(true);
+  const [isMessagesTabEnabled, setIsMessagesTabEnabled] = useState(false);
 
   // UI State
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
@@ -201,8 +202,6 @@ export default function App() {
       setNotifications(prev => [newNotif, ...prev]);
       
       // Trigger Toast ONLY if it targets current user or is global
-      // Note: In a real app with backend, user filtering happens on fetch. 
-      // Here, we check if we should show toast to CURRENTLY logged in user.
       const shouldShowToast = !user || !targetUserId || targetUserId === user.id || 
                               (user.role === 'admin' && targetUserId === 'ADMIN_BRANCH_' + user.branchId);
 
@@ -292,12 +291,6 @@ export default function App() {
       };
       setItems([newItem, ...items]);
       
-      // Notify All Users in Branch
-      // In a real app, we'd send one notification with topic. Here, we can leave targetUserId undefined for global/branch filter logic in visibleItems
-      // or we simulate sending to everyone.
-      // Let's make it a global notification for the branch.
-      // NOTE: Our Notification filter logic needs to handle branch. 
-      // For simplicity in this mock, we'll assume null targetUserId = Global/Branch Wide.
       addNotification('Novo Comunicado', `"${title}" foi publicado por ${user?.name}.`, 'info');
   };
 
@@ -404,39 +397,39 @@ export default function App() {
 
   const handleResolveRequest = (requestId: string, status: 'approved' | 'rejected') => {
       const targetReq = requests.find(r => r.id === requestId);
-      
+      if (!targetReq) return;
+
       setRequests(prev => prev.map(r => {
           if (r.id === requestId) {
               const updated = { ...r, status, resolutionDate: new Date().toISOString() };
-              
-              if (status === 'approved' && r.fullDate) {
-                  const newDailySchedule: DailySchedule = {
-                      id: Date.now().toString(),
-                      userId: r.userId,
-                      date: r.fullDate,
-                      type: 'SundayOff'
-                  };
-                  
-                  setDailySchedules(currentSchedules => {
-                      const filtered = currentSchedules.filter(s => !(s.userId === r.userId && s.date === r.fullDate));
-                      return [...filtered, newDailySchedule];
-                  });
-              }
-              
               return updated;
           }
           return r;
       }));
 
-      // Notify User
-      if (targetReq) {
-          addNotification(
-              status === 'approved' ? 'Folga Aprovada' : 'Folga Recusada',
-              `Sua solicitação para ${targetReq.date} foi ${status === 'approved' ? 'aprovada' : 'recusada'}.`,
-              status === 'approved' ? 'success' : 'warning',
-              targetReq.userId
-          );
+      // Automatically update the calendar if approved
+      if (status === 'approved' && targetReq.fullDate) {
+          const newDailySchedule: DailySchedule = {
+              id: Date.now().toString(),
+              userId: targetReq.userId,
+              date: targetReq.fullDate,
+              type: 'SundayOff'
+          };
+          
+          setDailySchedules(currentSchedules => {
+              // Filter out existing schedules for that day/user to prevent duplicates/conflicts
+              const filtered = currentSchedules.filter(s => !(s.userId === targetReq.userId && s.date === targetReq.fullDate));
+              return [...filtered, newDailySchedule];
+          });
       }
+
+      // Notify User
+      addNotification(
+          status === 'approved' ? 'Folga Aprovada' : 'Folga Recusada',
+          `Sua solicitação para ${targetReq.date} foi ${status === 'approved' ? 'aprovada' : 'recusada'}.`,
+          status === 'approved' ? 'success' : 'warning',
+          targetReq.userId
+      );
   };
 
   const handleDeleteRequest = (id: string) => setRequests(prev => prev.filter(r => r.id !== id));
@@ -647,7 +640,6 @@ export default function App() {
 
           if (yesterdaySchedule?.type === 'Vacation' && todaySchedule?.type !== 'Vacation') {
               handleUpdateUser(user.id, { hideWeeklySchedule: false });
-              // Optional: notification here too
           }
       }
   }, [dailySchedules, user]);
@@ -656,7 +648,7 @@ export default function App() {
     return (
         <Login 
             onLogin={handleLogin} 
-            onRecoverPassword={handleRecoverPassword}
+            onRecoverPassword={handleRecoverPassword} 
             onRegister={handleRegister}
         />
     );
