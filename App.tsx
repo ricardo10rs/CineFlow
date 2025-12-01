@@ -17,8 +17,9 @@ import { UploadModal } from './components/UploadModal';
 import { Subscription } from './components/Subscription'; 
 import { NotificationToast } from './components/NotificationToast'; 
 import { NotificationCenter } from './components/NotificationCenter'; 
+import { MarketingFiles } from './components/MarketingFiles';
 
-import { User, AppItem, WorkShift, DailySchedule, OffRequest, Branch, ThemeColor, HolidayEvent, BreakSession, VacationSchedule, DirectMessage, ContentType, Notification, AnnouncementItem, DocumentItem } from './types';
+import { User, AppItem, WorkShift, DailySchedule, OffRequest, Branch, ThemeColor, HolidayEvent, BreakSession, VacationSchedule, DirectMessage, ContentType, Notification, AnnouncementItem, DocumentItem, PromotionalFile } from './types';
 import { analyzeContent } from './services/geminiService';
 import { Menu, Plus, Bell, Hexagon } from 'lucide-react';
 
@@ -48,6 +49,107 @@ const MOCK_ITEMS: AppItem[] = [
   }
 ];
 
+const MOCK_PROMOTIONAL: PromotionalFile[] = [
+    // 2024 Files
+    {
+        id: 'p1',
+        title: 'Janeiro: Saldão de Estoque',
+        description: 'Peças para redes sociais (Stories e Feed) e Email Marketing.',
+        url: '#',
+        type: 'IMAGE',
+        date: '05/01/2024'
+    },
+    {
+        id: 'p2',
+        title: 'Diretrizes Visuais 2024',
+        description: 'Novo manual de identidade visual atualizado.',
+        url: '#',
+        type: 'PDF',
+        date: '15/01/2024'
+    },
+    {
+        id: 'p3',
+        title: 'Carnaval: Horários Especiais',
+        description: 'Comunicado oficial para clientes (PDF A4 para impressão).',
+        url: '#',
+        type: 'PDF',
+        date: '10/02/2024'
+    },
+    {
+        id: 'p4',
+        title: 'Assets Carnaval',
+        description: 'Pacote de ícones e vetores temáticos.',
+        url: '#',
+        type: 'ZIP',
+        date: '12/02/2024'
+    },
+    {
+        id: 'p5',
+        title: 'Campanha Páscoa - Vídeo',
+        description: 'Vídeo promocional de 30s para TVs da loja.',
+        url: '#',
+        type: 'VIDEO',
+        date: '01/03/2024'
+    },
+    {
+        id: 'p6',
+        title: 'Catálogo de Ovos de Páscoa',
+        description: 'Lista completa de produtos e preços.',
+        url: '#',
+        type: 'PDF',
+        date: '05/03/2024'
+    },
+    {
+        id: 'p7',
+        title: 'Dia das Mães - Pack Fotos',
+        description: 'Fotos em alta resolução dos produtos para vitrine.',
+        url: '#',
+        type: 'ZIP',
+        date: '20/04/2024'
+    },
+    {
+        id: 'p8',
+        title: 'Promoção Dia dos Namorados',
+        description: 'Banner principal do site.',
+        url: '#',
+        type: 'IMAGE',
+        date: '01/06/2024'
+    },
+    {
+        id: 'p9',
+        title: 'Festa Junina - Convite Digital',
+        description: 'Arte para envio via WhatsApp.',
+        url: '#',
+        type: 'IMAGE',
+        date: '10/06/2024'
+    },
+    {
+        id: 'p10',
+        title: 'Campanha Black Friday Teaser',
+        description: 'Vídeo curto de aquecimento.',
+        url: '#',
+        type: 'VIDEO',
+        date: '01/11/2024'
+    },
+    // 2025 Files (For testing navigation)
+    {
+        id: 'p11',
+        title: 'Planejamento Q1 2025',
+        description: 'Apresentação de estratégia para o primeiro trimestre.',
+        url: '#',
+        type: 'PDF',
+        date: '10/01/2025'
+    },
+    {
+        id: 'p12',
+        title: 'Campanha Verão 2025',
+        description: 'Banner principal para campanha de verão.',
+        url: '#',
+        type: 'IMAGE',
+        date: '15/01/2025'
+    }
+];
+
 // Standard Shift Order (Sunday to Saturday)
 // Sunday starts as Work at 13:00 per request
 const MOCK_SHIFTS: WorkShift[] = [
@@ -74,6 +176,7 @@ export default function App() {
   const [users, setUsers] = useState<User[]>(MOCK_USERS);
   const [branches, setBranches] = useState<Branch[]>(MOCK_BRANCHES);
   const [items, setItems] = useState<AppItem[]>(MOCK_ITEMS);
+  const [promotionalFiles, setPromotionalFiles] = useState<PromotionalFile[]>(MOCK_PROMOTIONAL);
   const [shifts, setShifts] = useState<WorkShift[]>(MOCK_SHIFTS);
   const [dailySchedules, setDailySchedules] = useState<DailySchedule[]>([]);
   const [requests, setRequests] = useState<OffRequest[]>([]);
@@ -129,6 +232,10 @@ export default function App() {
       }
       return messages.filter(m => m.userId === user.id);
   }, [messages, user]);
+
+  const unreadMessageCount = useMemo(() => {
+      return userMessages.filter(m => !m.read && (user?.role === 'employee' ? true : m.senderId !== user?.id)).length;
+  }, [userMessages, user]);
 
   const userNotifications = useMemo(() => {
       if (!user) return [];
@@ -548,6 +655,30 @@ export default function App() {
       setVacationSchedules(prev => prev.filter(v => v.id !== id));
   };
 
+  // --- MARKETING FILES HANDLERS ---
+  const handleUploadPromotional = (title: string, description: string, file: File) => {
+      const newFile: PromotionalFile = {
+          id: Date.now().toString(),
+          title,
+          description,
+          url: URL.createObjectURL(file),
+          type: file.type.includes('pdf') ? 'PDF' : file.type.includes('video') ? 'VIDEO' : file.type.includes('zip') ? 'ZIP' : 'IMAGE',
+          date: new Date().toLocaleDateString('pt-BR')
+      };
+      setPromotionalFiles([newFile, ...promotionalFiles]);
+      addNotification('Novo Material de Marketing', `"${title}" foi disponibilizado para as filiais.`, 'info');
+  };
+
+  // Update existing promotional file
+  const handleUpdatePromotional = (id: string, data: Partial<PromotionalFile>) => {
+      setPromotionalFiles(prev => prev.map(f => f.id === id ? { ...f, ...data } : f));
+      addNotification('Material Atualizado', 'O arquivo de marketing foi editado com sucesso.', 'success');
+  };
+
+  const handleDeletePromotional = (id: string) => {
+      setPromotionalFiles(promotionalFiles.filter(f => f.id !== id));
+  };
+
   const generateBrazilianHolidays = (year: number): HolidayEvent[] => {
         const fixedHolidays: Omit<HolidayEvent, 'id'>[] = [
             { date: `${year}-01-01`, name: 'Confraternização Universal', type: 'Feriado Nacional', color: 'green' },
@@ -686,6 +817,7 @@ export default function App() {
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
         messageStatus={messageStatus}
+        unreadMessageCount={unreadMessageCount}
         isMessagesTabEnabled={isMessagesTabEnabled}
         isVacationMode={isOnVacation}
       />
@@ -882,6 +1014,17 @@ export default function App() {
                     onEditJobTitle={handleEditJobTitle}
                     onDeleteJobTitle={handleDeleteJobTitle}
                     onSendMessage={handleSendMessage}
+                 />
+             )}
+
+             {activeTab === 'marketing' && (user.role === 'admin' || user.role === 'super_admin') && (
+                 <MarketingFiles 
+                    files={promotionalFiles}
+                    themeColor={currentTheme}
+                    userRole={user.role}
+                    onUpload={handleUploadPromotional}
+                    onUpdate={handleUpdatePromotional}
+                    onDelete={handleDeletePromotional}
                  />
              )}
 

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Megaphone, Settings, LogOut, CalendarClock, Users, Building, Timer, Clock, GripVertical, LucideIcon, MessageCircle, Hexagon, CalendarRange, CalendarDays, QrCode, FileText, Palmtree, CreditCard } from 'lucide-react';
+import { Megaphone, Settings, LogOut, CalendarClock, Users, Building, Timer, Clock, GripVertical, LucideIcon, MessageCircle, Hexagon, CalendarRange, CalendarDays, QrCode, FileText, Palmtree, CreditCard, UploadCloud } from 'lucide-react';
 import { User, ThemeColor } from '../types';
 
 interface SidebarProps {
@@ -12,8 +12,9 @@ interface SidebarProps {
   mobileMenuOpen: boolean;
   setMobileMenuOpen: (open: boolean) => void;
   messageStatus: 'red' | 'green' | 'none';
+  unreadMessageCount?: number; // New prop for numeric counter
   isMessagesTabEnabled?: boolean;
-  isVacationMode?: boolean; // New Prop
+  isVacationMode?: boolean; 
 }
 
 type MenuItem = {
@@ -43,6 +44,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   mobileMenuOpen, 
   setMobileMenuOpen, 
   messageStatus,
+  unreadMessageCount = 0,
   isMessagesTabEnabled = false,
   isVacationMode = false
 }) => {
@@ -64,6 +66,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         baseItems = [
           { id: 'branches', icon: Building, label: 'Unidades' },
           { id: 'team', icon: Users, label: 'Admin & Equipes' },
+          { id: 'marketing', icon: UploadCloud, label: 'Marketing' },
           { id: 'schedulings', icon: CalendarDays, label: 'Férias' },
           { id: 'subscription', icon: CreditCard, label: 'Assinatura' },
           { id: 'settings', icon: Settings, label: 'Configurações' }
@@ -94,6 +97,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         if (user.role === 'admin') {
           baseItems.push(
             { id: 'break_monitor', icon: Timer, label: 'Monitoramento' },
+            { id: 'marketing', icon: UploadCloud, label: 'Marketing' }, // Add Marketing for Admin
             { id: 'schedulings', icon: CalendarDays, label: 'Agendamentos' },
             { id: 'qrcode', icon: QrCode, label: 'Acesso QR' },
             { id: 'team', icon: Users, label: 'Minha Equipe' }
@@ -225,8 +229,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <item.icon size={20} strokeWidth={1.5} className={activeTab === item.id ? 'text-white' : 'text-slate-400 group-hover:text-white'} />
                 <span className="text-sm font-medium">{item.label}</span>
                 
-                {item.id === 'messages' && messageStatus !== 'none' && (
-                     <span className={`ml-auto w-2 h-2 rounded-full ${messageStatus === 'green' ? 'bg-green-500' : 'bg-red-500'} animate-pulse`}></span>
+                {/* Message Counter or Status Dot */}
+                {item.id === 'messages' && (
+                    <div className="ml-auto flex items-center">
+                        {unreadMessageCount > 0 ? (
+                             <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-sm min-w-[20px] text-center flex items-center justify-center h-5">
+                                {unreadMessageCount > 99 ? '99+' : unreadMessageCount}
+                             </span>
+                        ) : messageStatus !== 'none' && (
+                             <span className={`w-2 h-2 rounded-full ${messageStatus === 'green' ? 'bg-green-500' : 'bg-red-500'} animate-pulse`}></span>
+                        )}
+                    </div>
                 )}
                 </button>
             </div>

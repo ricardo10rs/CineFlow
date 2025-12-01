@@ -71,6 +71,16 @@ export interface DocumentItem extends BaseItem {
 
 export type AppItem = AnnouncementItem | DocumentItem;
 
+export interface PromotionalFile {
+  id: string;
+  title: string;
+  description: string;
+  url: string;
+  type: 'IMAGE' | 'PDF' | 'VIDEO' | 'ZIP';
+  date: string;
+  size?: string;
+}
+
 export interface WorkShift {
   id: string;
   branchId: string;
